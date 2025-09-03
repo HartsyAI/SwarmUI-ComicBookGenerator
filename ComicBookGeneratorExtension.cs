@@ -8,9 +8,7 @@ public class ComicBookGeneratorExtension : Extension
 {
     public override void OnPreInit()
     {
-        // TODO: Initialize assets (JS/CSS) for the Comic Book Generator UI
-        // Example (uncomment when files are ready):
-        ScriptFiles.Add("Assets/comicbook.js");
+        ScriptFiles.Add("Assets/comicbook-main.js");
         StyleSheetFiles.Add("Assets/comicbook.css");
 
         Logs.Info("ComicBookGeneratorExtension loaded (skeleton)");
