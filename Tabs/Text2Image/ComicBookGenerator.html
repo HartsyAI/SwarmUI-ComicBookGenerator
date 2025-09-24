@@ -1,28 +1,50 @@
-<!-- Comic Book Generator -->
+<!-- Enhanced Comic Book Generator -->
 <div id="comicbook-generator" class="tab-content scroll-within-tab">
-    
-
     <div class="d-flex flex-column comic-book-generator">
 
-        <!-- Mode Selection -->
-        <div class="section-header" style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--shadow);">
+        <!-- Mode Selection Header -->
+        <div class="section-header cbg-main-header">
             <div class="d-flex justify-content-between align-items-center">
-                <div class="text-center">Comic Book Creator</div>
-                <div class="btn-group btn-group-sm" role="group">
-                    <input type="radio" class="btn-check" name="cbg_mode" id="characters_mode" autocomplete="off" checked>
-                    <label class="btn btn-outline-primary" for="characters_mode">Characters</label>
-                    <input type="radio" class="btn-check" name="cbg_mode" id="story_mode" autocomplete="off">
-                    <label class="btn btn-outline-primary" for="story_mode">Story</label>
-                    <input type="radio" class="btn-check" name="cbg_mode" id="layout_mode" autocomplete="off">
-                    <label class="btn btn-outline-primary" for="layout_mode">Layout</label>
-                    <input type="radio" class="btn-check" name="cbg_mode" id="assets_mode" autocomplete="off">
-                    <label class="btn btn-outline-primary" for="assets_mode">Assets</label>
-                    <input type="radio" class="btn-check" name="cbg_mode" id="preview_mode" autocomplete="off">
-                    <label class="btn btn-outline-primary" for="preview_mode">Preview</label>
+                <div class="cbg-title">
+                    <h2 style="margin: 0; font-size: 1.4rem; font-weight: 600;">Comic Book Creator</h2>
+                    <div style="font-size: 0.85rem; color: var(--text-soft); margin-top: 0.25rem;">Professional AI-Powered Comic Creation Suite</div>
                 </div>
-                <div class="d-flex align-items-center">
-                    <span id="cbg-save-status" class="me-3" style="color: var(--text-soft); font-size: 0.9rem;">Ready</span>
-                    <button id="cbg-save-project" class="basic-button btn-primary">Save Project</button>
+
+                <div class="btn-group btn-group-sm cbg-mode-selector" role="group">
+                    <input type="radio" class="btn-check" name="cbg_mode" id="characters_mode" autocomplete="off" checked>
+                    <label class="btn btn-outline-primary" for="characters_mode">
+                        <span class="mode-icon">👥</span>
+                        Characters
+                    </label>
+
+                    <input type="radio" class="btn-check" name="cbg_mode" id="story_mode" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="story_mode">
+                        <span class="mode-icon">📖</span>
+                        Story
+                    </label>
+
+                    <input type="radio" class="btn-check" name="cbg_mode" id="layout_mode" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="layout_mode">
+                        <span class="mode-icon">🎨</span>
+                        Layout
+                    </label>
+
+                    <input type="radio" class="btn-check" name="cbg_mode" id="publication_mode" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="publication_mode">
+                        <span class="mode-icon">📚</span>
+                        Publication
+                    </label>
+                </div>
+
+                <div class="cbg-global-controls d-flex align-items-center">
+                    <div class="cbg-status-indicators me-3">
+                        <span id="cbg-save-status" class="status-indicator">Ready</span>
+                        <span id="cbg-project-status" class="status-indicator">Draft</span>
+                    </div>
+                    <button id="cbg-save-project" class="basic-button btn-primary">
+                        <span class="btn-icon">💾</span>
+                        Save Project
+                    </button>
                 </div>
             </div>
         </div>
@@ -30,17 +52,54 @@
         <!-- Characters Mode -->
         <div id="characters_content" class="mode-content d-flex flex-grow-1 main-content active">
             <!-- Left Side - Character Library -->
-            <div id="character_library_section" class="d-flex flex-column" style="min-width: 320px;">
+            <div id="character_library_section" class="cbg-panel cbg-left-panel">
                 <div class="section-content">
-                    <div class="section-header position-relative">
-                        <div class="text-center">Character Library</div>
-                        <button id="cbg-add-character" class="basic-button btn-primary position-absolute" style="right: 0.5rem; top: 50%; transform: translateY(-50%);">
-                            + Add
-                        </button>
+                    <div class="section-header">
+                        <div class="section-title">
+                            <span class="section-icon">👥</span>
+                            Character Library
+                        </div>
+                        <div class="section-controls">
+                            <button id="cbg-character-search-toggle" class="basic-button small-button me-2" title="Search Characters">🔍</button>
+                            <button id="cbg-add-character" class="basic-button btn-primary">+ Add</button>
+                        </div>
                     </div>
-                    <div class="character-library-area" style="padding: 1rem; overflow-y: auto;">
-                        <div id="cbg-character-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem;">
+
+                    <!-- Character Search/Filter -->
+                    <div id="cbg-character-search-panel" class="search-panel" style="display: none;">
+                        <div class="d-flex gap-2 mb-3">
+                            <input type="text" id="cbg-character-search" class="form-control form-control-sm" placeholder="Search characters...">
+                            <select id="cbg-character-filter" class="form-select form-select-sm" style="width: auto;">
+                                <option value="all">All Roles</option>
+                                <option value="Protagonist">Protagonist</option>
+                                <option value="Antagonist">Antagonist</option>
+                                <option value="Supporting">Supporting</option>
+                                <option value="Background">Background</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="character-library-area">
+                        <div id="cbg-character-cards" class="character-cards-grid">
                             <!-- Character cards will be populated by JavaScript -->
+                        </div>
+
+                        <!-- Character Stats Summary -->
+                        <div id="cbg-character-stats" class="character-stats-panel">
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <span class="stat-number" id="cbg-total-characters">0</span>
+                                    <span class="stat-label">Characters</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-number" id="cbg-main-characters">0</span>
+                                    <span class="stat-label">Main</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-number" id="cbg-relationships">0</span>
+                                    <span class="stat-label">Connections</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -50,18 +109,37 @@
             <div id="resize_handle_characters" class="resize-handle"></div>
 
             <!-- Right Side - Character Editor -->
-            <div id="character_editor_section" class="d-flex flex-column flex-grow-1">
+            <div id="character_editor_section" class="cbg-panel cbg-right-panel flex-grow-1">
                 <div class="section-content d-flex flex-column">
-                    <div class="section-header d-flex align-items-center justify-content-between">
-                        <div class="text-center">Character Editor</div>
-                        <div class="d-flex align-items-center">
-                            <span id="cbg-character-status" class="me-3" style="color: var(--text-soft); font-size: 0.9rem;">Select a character</span>
+                    <div class="section-header">
+                        <div class="section-title">
+                            <span class="section-icon">✏️</span>
+                            Character Editor
+                        </div>
+                        <div class="section-controls d-flex align-items-center">
+                            <span id="cbg-character-status" class="status-text me-3">Select a character</span>
+                            <button id="cbg-duplicate-character" class="basic-button small-button me-2" disabled title="Duplicate Character">📋</button>
                             <button id="cbg-save-character" class="basic-button btn-primary" disabled>Save Character</button>
                         </div>
                     </div>
-                    <div class="character-editor-area flex-grow-1" style="padding: 1rem; overflow-y: auto;">
-                        <div id="cbg-character-editor-content">
-                            <!-- Content will be populated by JavaScript -->
+
+                    <div class="character-editor-area flex-grow-1">
+                        <!-- Tabbed Character Editor -->
+                        <div id="cbg-character-tabs" class="cbg-tabs-container">
+                            <div class="cbg-tabs-header">
+                                <button class="cbg-tab-btn active" data-tab="basic">Basic Info</button>
+                                <button class="cbg-tab-btn" data-tab="appearance">Appearance</button>
+                                <button class="cbg-tab-btn" data-tab="psychology">Psychology</button>
+                                <button class="cbg-tab-btn" data-tab="backstory">Backstory</button>
+                                <button class="cbg-tab-btn" data-tab="story-role">Story Role</button>
+                                <button class="cbg-tab-btn" data-tab="skills">Skills</button>
+                                <button class="cbg-tab-btn" data-tab="relationships">Relationships</button>
+                            </div>
+                            <div class="cbg-tabs-content">
+                                <div id="cbg-character-editor-content">
+                                    <!-- Content will be populated by JavaScript -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -70,15 +148,21 @@
 
         <!-- Story Mode -->
         <div id="story_content" class="mode-content d-flex flex-grow-1 main-content">
-            <!-- Left Side - Story Settings & Plot -->
-            <div id="story_settings_section" class="d-flex flex-column" style="min-width: 360px;">
+            <!-- Left Side - Story Navigation -->
+            <div id="story_navigation_section" class="cbg-panel cbg-left-panel">
                 <div class="section-content">
                     <div class="section-header">
-                        <div class="text-center">Story Development</div>
+                        <div class="section-title">
+                            <span class="section-icon">📖</span>
+                            Story Structure
+                        </div>
+                        <div class="section-controls">
+                            <button id="cbg-story-outline-toggle" class="basic-button small-button" title="Toggle Outline">📋</button>
+                        </div>
                     </div>
-                    <div class="story-settings-area" style="padding: 1rem; overflow-y: auto;">
-                        <div id="cbg-story-settings-content">
-                            <!-- Content will be populated by JavaScript -->
+                    <div class="story-navigation-area">
+                        <div id="cbg-story-navigation-content">
+                            <!-- Navigation content will be populated by JavaScript -->
                         </div>
                     </div>
                 </div>
@@ -87,19 +171,39 @@
             <!-- Resize Handle -->
             <div id="resize_handle_story" class="resize-handle"></div>
 
-            <!-- Right Side - Script Editor -->
-            <div id="story_script_section" class="d-flex flex-column flex-grow-1">
+            <!-- Right Side - Story Editor -->
+            <div id="story_editor_section" class="cbg-panel cbg-right-panel flex-grow-1">
                 <div class="section-content d-flex flex-column">
-                    <div class="section-header d-flex align-items-center justify-content-between">
-                        <div class="text-center">Comic Script</div>
-                        <div class="d-flex align-items-center">
-                            <button class="basic-button small-button me-2" id="cbg-story-draft-llm">Draft with AI</button>
-                            <button class="basic-button btn-primary" id="cbg-script-save">Save Script</button>
+                    <div class="section-header">
+                        <div class="section-title">
+                            <span class="section-icon">✍️</span>
+                            Story Development
+                        </div>
+                        <div class="section-controls d-flex align-items-center">
+                            <div class="story-stats me-3">
+                                <span id="cbg-story-word-count" class="stat-badge">0 words</span>
+                                <span id="cbg-story-completion" class="stat-badge">0% complete</span>
+                            </div>
+                            <button id="cbg-story-export" class="basic-button small-button me-2">Export</button>
+                            <button id="cbg-story-save" class="basic-button btn-primary">Save Story</button>
                         </div>
                     </div>
-                    <div class="script-editor-area flex-grow-1" style="padding: 1rem; overflow-y: auto;">
-                        <div id="cbg-story-script-content">
-                            <!-- Content will be populated by JavaScript -->
+
+                    <div class="story-editor-area flex-grow-1">
+                        <!-- Tabbed Story Editor -->
+                        <div id="cbg-story-tabs" class="cbg-tabs-container">
+                            <div class="cbg-tabs-header">
+                                <button class="cbg-tab-btn active" data-tab="info">Story Info</button>
+                                <button class="cbg-tab-btn" data-tab="plot">Plot Structure</button>
+                                <button class="cbg-tab-btn" data-tab="world">World Building</button>
+                                <button class="cbg-tab-btn" data-tab="arcs">Character Arcs</button>
+                                <button class="cbg-tab-btn" data-tab="analysis">Analysis</button>
+                            </div>
+                            <div class="cbg-tabs-content">
+                                <div id="cbg-story-editor-content">
+                                    <!-- Content will be populated by JavaScript -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -108,16 +212,19 @@
 
         <!-- Layout Mode -->
         <div id="layout_content" class="mode-content d-flex flex-grow-1 main-content">
-            <!-- Left Side - Canvas & Tools -->
-            <div id="layout_canvas_section" class="d-flex flex-column flex-grow-1">
+            <!-- Main Canvas Area -->
+            <div id="layout_canvas_section" class="cbg-panel flex-grow-1">
                 <div class="section-content d-flex flex-column">
-                    <div class="section-header d-flex align-items-center justify-content-between">
-                        <div class="text-center">Page Layout Canvas</div>
-                        <div class="d-flex align-items-center">
-                            <select id="cbg-current-page" class="auto-dropdown me-2" style="width: 100px;">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <span class="section-icon">🎨</span>
+                            Page Layout Canvas
+                        </div>
+                        <div class="section-controls d-flex align-items-center">
+                            <select id="cbg-current-page" class="form-select form-select-sm me-2" style="width: 100px;">
                                 <option value="1">Page 1</option>
                             </select>
-                            <select id="cbg-layout-templates" class="auto-dropdown me-2" style="width: 140px;">
+                            <select id="cbg-layout-templates" class="form-select form-select-sm me-2" style="width: 140px;">
                                 <option value="">Custom Layout</option>
                                 <option value="grid-2x2">2×2 Grid</option>
                                 <option value="grid-3x3">3×3 Grid</option>
@@ -128,8 +235,8 @@
                             <button class="basic-button btn-primary" id="cbg-save-page">Save Page</button>
                         </div>
                     </div>
-                    <div class="canvas-area flex-grow-1" style="padding: 1rem; overflow: hidden;">
-                        <div id="cbg-layout-canvas" class="panel-canvas" style="width:100%; height:100%; min-height:500px;">
+                    <div class="canvas-area flex-grow-1">
+                        <div id="cbg-layout-canvas" class="panel-canvas">
                             <!-- Panels will be added dynamically -->
                         </div>
                     </div>
@@ -139,13 +246,16 @@
             <!-- Resize Handle -->
             <div id="resize_handle_layout" class="resize-handle"></div>
 
-            <!-- Right Side - Panel Inspector & Tools -->
-            <div id="layout_inspector_section" class="d-flex flex-column" style="min-width: 320px;">
+            <!-- Right Side - Panel Inspector -->
+            <div id="layout_inspector_section" class="cbg-panel cbg-right-panel">
                 <div class="section-content">
                     <div class="section-header">
-                        <div class="text-center">Panel Inspector</div>
+                        <div class="section-title">
+                            <span class="section-icon">🔧</span>
+                            Panel Inspector
+                        </div>
                     </div>
-                    <div class="inspector-area" style="padding: 1rem; overflow-y: auto;">
+                    <div class="inspector-area">
                         <div id="cbg-panel-inspector-content">
                             <!-- Content will be populated by JavaScript -->
                         </div>
@@ -154,79 +264,49 @@
             </div>
         </div>
 
-        <!-- Assets Mode -->
-        <div id="assets_content" class="mode-content d-flex flex-grow-1 main-content">
-            <!-- Left Side - Templates & Resources -->
-            <div id="assets_templates_section" class="d-flex flex-column" style="min-width: 380px;">
+        <!-- Publication Mode (formerly Preview) -->
+        <div id="publication_content" class="mode-content d-flex flex-grow-1 main-content">
+            <!-- Left Side - Navigation & Controls -->
+            <div id="publication_navigator_section" class="cbg-panel cbg-left-panel">
                 <div class="section-content">
                     <div class="section-header">
-                        <div class="text-center">Templates & Resources</div>
-                    </div>
-                    <div class="templates-area" style="padding: 1rem; overflow-y: auto;">
-                        <div id="cbg-templates-content">
-                            <!-- Content will be populated by JavaScript -->
+                        <div class="section-title">
+                            <span class="section-icon">📚</span>
+                            Publication Suite
+                        </div>
+                        <div class="section-controls">
+                            <button id="cbg-reading-options" class="basic-button small-button" title="Reading Options">⚙️</button>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- Resize Handle -->
-            <div id="resize_handle_assets" class="resize-handle"></div>
-
-            <!-- Right Side - Asset Library -->
-            <div id="assets_library_section" class="d-flex flex-column flex-grow-1">
-                <div class="section-content d-flex flex-column">
-                    <div class="section-header d-flex align-items-center justify-content-between">
-                        <div class="text-center">Asset Library</div>
-                        <div class="d-flex align-items-center">
-                            <select class="auto-dropdown me-2" id="cbg-asset-filter" style="width: 120px;">
-                                <option value="all">All Assets</option>
-                                <option value="backgrounds">Backgrounds</option>
-                                <option value="characters">Characters</option>
-                                <option value="props">Props</option>
-                                <option value="effects">Effects</option>
-                            </select>
-                            <button class="basic-button small-button me-2" id="cbg-assets-upload">+ Upload</button>
-                            <button class="basic-button btn-primary" id="cbg-assets-organize">Organize</button>
-                        </div>
-                    </div>
-                    <div class="library-area flex-grow-1" style="padding: 1rem; overflow-y: auto;">
-                        <div id="cbg-assets-library-content">
-                            <!-- Content will be populated by JavaScript -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Preview Mode -->
-        <div id="preview_content" class="mode-content d-flex flex-grow-1 main-content">
-            <!-- Left Side - Page Navigator -->
-            <div id="preview_navigator_section" class="d-flex flex-column" style="min-width: 280px;">
-                <div class="section-content">
-                    <div class="section-header">
-                        <div class="text-center">Page Navigator</div>
-                    </div>
-                    <div class="navigator-area" style="padding: 1rem; overflow-y: auto;">
+                    <div class="navigator-area">
                         <div id="cbg-preview-navigator-content">
-                            <!-- Content will be populated by JavaScript -->
+                            <!-- Navigator content will be populated by JavaScript -->
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Resize Handle -->
-            <div id="resize_handle_preview" class="resize-handle"></div>
+            <div id="resize_handle_publication" class="resize-handle"></div>
 
-            <!-- Right Side - Main Preview -->
-            <div id="preview_main_section" class="d-flex flex-column flex-grow-1">
+            <!-- Right Side - Comic Reader -->
+            <div id="publication_reader_section" class="cbg-panel cbg-right-panel flex-grow-1">
                 <div class="section-content d-flex flex-column">
-                    <div class="section-header d-flex align-items-center justify-content-between">
-                        <div class="text-center">Page Preview</div>
-                        <div class="d-flex align-items-center">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <span class="section-icon">👁️</span>
+                            Comic Reader
+                        </div>
+                        <div class="section-controls d-flex align-items-center">
+                            <select id="cbg-reading-mode" class="form-select form-select-sm me-2" style="width: 140px;">
+                                <option value="single-page">Single Page</option>
+                                <option value="double-page">Double Page</option>
+                                <option value="continuous-scroll">Continuous</option>
+                                <option value="panel-by-panel">Panel Guide</option>
+                            </select>
                             <button class="basic-button small-button me-2" id="cbg-zoom-fit">Fit</button>
                             <button class="basic-button small-button me-2" id="cbg-zoom-100">100%</button>
-                            <select class="auto-dropdown" id="cbg-zoom-level" style="width: 80px;">
+                            <select id="cbg-zoom-level" class="form-select form-select-sm me-2" style="width: 80px;">
                                 <option value="25">25%</option>
                                 <option value="50">50%</option>
                                 <option value="75">75%</option>
@@ -235,200 +315,19 @@
                                 <option value="150">150%</option>
                                 <option value="200">200%</option>
                             </select>
+                            <button id="cbg-fullscreen-reader" class="basic-button btn-primary">📖 Fullscreen</button>
                         </div>
                     </div>
-                    <div class="preview-area flex-grow-1" style="padding: 1rem; overflow: auto; background-color: var(--background-soft);">
-                        <div id="cbg-preview-canvas" style="max-width: 100%; margin: 0 auto; background-color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 0.5rem; min-height: 600px; aspect-ratio: 8.5/11; display: flex; align-items: center; justify-content: center; position: relative;">
+                    <div class="reader-area flex-grow-1">
+                        <div id="cbg-preview-canvas" class="comic-reader-viewport">
                             <div id="cbg-preview-content">
                                 <!-- Preview content will be populated by JavaScript -->
                             </div>
                         </div>
                     </div>
-    </div>
-</div>
-</div>
-
-<!-- Story Mode -->
-<div id="story_content" class="mode-content d-flex flex-grow-1 main-content">
-    <!-- Left Side - Story Settings & Plot -->
-    <div id="story_settings_section" class="d-flex flex-column" style="min-width: 360px;">
-        <div class="section-content">
-            <div class="section-header">
-                <div class="text-center">Story Development</div>
-            </div>
-            <div class="story-settings-area" style="padding: 1rem; overflow-y: auto;">
-                <div id="cbg-story-settings-content">
-                    <!-- Content will be populated by JavaScript -->
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Resize Handle -->
-    <div id="resize_handle_story" class="resize-handle"></div>
-
-    <!-- Right Side - Script Editor -->
-    <div id="story_script_section" class="d-flex flex-column flex-grow-1">
-        <div class="section-content d-flex flex-column">
-            <div class="section-header d-flex align-items-center justify-content-between">
-                <div class="text-center">Comic Script</div>
-                <div class="d-flex align-items-center">
-                    <button class="basic-button small-button me-2" id="cbg-story-draft-llm">Draft with AI</button>
-                    <button class="basic-button btn-primary" id="cbg-script-save">Save Script</button>
-                </div>
-            </div>
-            <div class="script-editor-area flex-grow-1" style="padding: 1rem; overflow-y: auto;">
-                <div id="cbg-story-script-content">
-                    <!-- Content will be populated by JavaScript -->
-                </div>
-            </div>
-        </div>
     </div>
 </div>
-
-<!-- Layout Mode -->
-<div id="layout_content" class="mode-content d-flex flex-grow-1 main-content">
-    <!-- Left Side - Canvas & Tools -->
-    <div id="layout_canvas_section" class="d-flex flex-column flex-grow-1">
-        <div class="section-content d-flex flex-column">
-            <div class="section-header d-flex align-items-center justify-content-between">
-                <div class="text-center">Page Layout Canvas</div>
-                <div class="d-flex align-items-center">
-                    <select id="cbg-current-page" class="auto-dropdown me-2" style="width: 100px;">
-                        <option value="1">Page 1</option>
-                    </select>
-                    <select id="cbg-layout-templates" class="auto-dropdown me-2" style="width: 140px;">
-                        <option value="">Custom Layout</option>
-                        <option value="grid-2x2">2×2 Grid</option>
-                        <option value="grid-3x3">3×3 Grid</option>
-                        <option value="manga-vert">Manga Vertical</option>
-                        <option value="splash">Splash Page</option>
-                    </select>
-                    <button class="basic-button small-button me-2" id="cbg-add-panel">+ Panel</button>
-                    <button class="basic-button btn-primary" id="cbg-save-page">Save Page</button>
-                </div>
-            </div>
-            <div class="canvas-area flex-grow-1" style="padding: 1rem; overflow: hidden;">
-                <div id="cbg-layout-canvas" class="panel-canvas" style="width:100%; height:100%; min-height:500px;">
-                    <!-- Panels will be added dynamically -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Resize Handle -->
-    <div id="resize_handle_layout" class="resize-handle"></div>
-
-    <!-- Right Side - Panel Inspector & Tools -->
-    <div id="layout_inspector_section" class="d-flex flex-column" style="min-width: 320px;">
-        <div class="section-content">
-            <div class="section-header">
-                <div class="text-center">Panel Inspector</div>
-            </div>
-            <div class="inspector-area" style="padding: 1rem; overflow-y: auto;">
-                <div id="cbg-panel-inspector-content">
-                    <!-- Content will be populated by JavaScript -->
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Assets Mode -->
-<div id="assets_content" class="mode-content d-flex flex-grow-1 main-content">
-    <!-- Left Side - Templates & Resources -->
-    <div id="assets_templates_section" class="d-flex flex-column" style="min-width: 380px;">
-        <div class="section-content">
-            <div class="section-header">
-                <div class="text-center">Templates & Resources</div>
-            </div>
-            <div class="templates-area" style="padding: 1rem; overflow-y: auto;">
-                <div id="cbg-templates-content">
-                    <!-- Content will be populated by JavaScript -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Resize Handle -->
-    <div id="resize_handle_assets" class="resize-handle"></div>
-
-    <!-- Right Side - Asset Library -->
-    <div id="assets_library_section" class="d-flex flex-column flex-grow-1">
-        <div class="section-content d-flex flex-column">
-            <div class="section-header d-flex align-items-center justify-content-between">
-                <div class="text-center">Asset Library</div>
-                <div class="d-flex align-items-center">
-                    <select class="auto-dropdown me-2" id="cbg-asset-filter" style="width: 120px;">
-                        <option value="all">All Assets</option>
-                        <option value="backgrounds">Backgrounds</option>
-                        <option value="characters">Characters</option>
-                        <option value="props">Props</option>
-                        <option value="effects">Effects</option>
-                    </select>
-                    <button class="basic-button small-button me-2" id="cbg-assets-upload">+ Upload</button>
-                    <button class="basic-button btn-primary" id="cbg-assets-organize">Organize</button>
-                </div>
-            </div>
-            <div class="library-area flex-grow-1" style="padding: 1rem; overflow-y: auto;">
-                <div id="cbg-assets-library-content">
-                    <!-- Content will be populated by JavaScript -->
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Preview Mode -->
-<div id="preview_content" class="mode-content d-flex flex-grow-1 main-content">
-    <!-- Left Side - Page Navigator -->
-    <div id="preview_navigator_section" class="d-flex flex-column" style="min-width: 280px;">
-        <div class="section-content">
-            <div class="section-header">
-                <div class="text-center">Page Navigator</div>
-            </div>
-            <div class="navigator-area" style="padding: 1rem; overflow-y: auto;">
-                <div id="cbg-preview-navigator-content">
-                    <!-- Content will be populated by JavaScript -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Resize Handle -->
-    <div id="resize_handle_preview" class="resize-handle"></div>
-
-    <!-- Right Side - Main Preview -->
-    <div id="preview_main_section" class="d-flex flex-column flex-grow-1">
-        <div class="section-content d-flex flex-column">
-            <div class="section-header d-flex align-items-center justify-content-between">
-                <div class="text-center">Page Preview</div>
-                <div class="d-flex align-items-center">
-                    <button class="basic-button small-button me-2" id="cbg-zoom-fit">Fit</button>
-                    <button class="basic-button small-button me-2" id="cbg-zoom-100">100%</button>
-                    <select class="auto-dropdown" id="cbg-zoom-level" style="width: 80px;">
-                        <option value="25">25%</option>
-                        <option value="50">50%</option>
-                        <option value="75">75%</option>
-                        <option value="100" selected>100%</option>
-                        <option value="125">125%</option>
-                        <option value="150">150%</option>
-                        <option value="200">200%</option>
-                    </select>
-                </div>
-            </div>
-            <div class="preview-area flex-grow-1" style="padding: 1rem; overflow: auto; background-color: var(--background-soft);">
-                <div id="cbg-preview-canvas" style="max-width: 100%; margin: 0 auto; background-color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 0.5rem; min-height: 600px; aspect-ratio: 8.5/11; display: flex; align-items: center; justify-content: center; position: relative;">
-                    <div id="cbg-preview-content">
-                        <!-- Preview content will be populated by JavaScript -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-</div>
-</div>
-
-<!-- ES Module entrypoint for the Comic Book Generator UI -->
-<script type="module" src="ExtensionFile/SwarmUI-ComicBookGenerator/Assets/comicbook-main.js"></script>

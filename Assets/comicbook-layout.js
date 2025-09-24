@@ -1,20 +1,31 @@
 /**
- * <summary>Comic Book Generator - Layout Management Module</summary>
- * Handles page layout, panel creation, positioning, and scene generation
+ * <summary>Comic Book Generator - Enhanced Layout Management Module</summary>
+ * Handles visual panel creation, scene generation, and page layout with AI integration
  */
 
-export class LayoutManager {
+class LayoutManager extends BaseManager {
     constructor(main) {
+        super(main, 'Layout');
         this.main = main;
         this.debug = true;
         this.pages = [];
         this.currentPage = 0;
         this.selectedPanel = null;
+        this.canvasZoom = 100;
+        this.canvasOffset = { x: 0, y: 0 };
         this.isDragging = false;
+        this.dragStart = { x: 0, y: 0 };
         this.isResizing = false;
-        this.dragOffset = { x: 0, y: 0 };
-        this.canvasRect = null;
-        this.panelTemplates = [];
+        this.resizeHandle = null;
+        this.panelTemplates = new Map();
+        this.layoutTemplates = new Map();
+        this.generationQueue = [];
+        this.isGenerating = false;
+        this.snapToGrid = true;
+        this.gridSize = 10;
+        this.showGrid = true;
+        this.undoStack = [];
+        this.redoStack = [];
         this.isInitialized = false;
 
         this.log('LayoutManager constructor called');
@@ -27,9 +38,11 @@ export class LayoutManager {
         try {
             this.log('Initializing Layout Manager...');
 
-            this.initializePages();
             this.initializePanelTemplates();
+            this.initializeLayoutTemplates();
+            this.createDefaultPage();
             this.setupEventHandlers();
+            this.setupCanvasInteraction();
             this.isInitialized = true;
 
             this.log('Layout Manager initialized successfully');
@@ -40,918 +53,1552 @@ export class LayoutManager {
     }
 
     /**
-     * <summary>Initialize default pages</summary>
+     * <summary>Initialize panel templates</summary>
      */
-    initializePages() {
-        // Create initial pages based on story settings
-        const storyManager = this.main.getManager('story');
-        const storyData = storyManager ? storyManager.getStoryData() : null;
-        const totalPages = storyData?.storyInfo?.totalPages || 8;
+    initializePanelTemplates() {
+        const templates = [
+            {
+                id: 'standard_rect',
+                name: 'Standard Rectangle',
+                shape: 'rectangle',
+                borderStyle: 'solid',
+                borderWidth: 2,
+                borderColor: '#000000',
+                aspectRatio: null
+            },
+            {
+                id: 'square_panel',
+                name: 'Square Panel',
+                shape: 'rectangle',
+                borderStyle: 'solid',
+                borderWidth: 2,
+                borderColor: '#000000',
+                aspectRatio: 1
+            },
+            {
+                id: 'wide_panel',
+                name: 'Wide Panel',
+                shape: 'rectangle',
+                borderStyle: 'solid',
+                borderWidth: 2,
+                borderColor: '#000000',
+                aspectRatio: 2.5
+            },
+            {
+                id: 'tall_panel',
+                name: 'Tall Panel',
+                shape: 'rectangle',
+                borderStyle: 'solid',
+                borderWidth: 2,
+                borderColor: '#000000',
+                aspectRatio: 0.6
+            },
+            {
+                id: 'circular_panel',
+                name: 'Circular Panel',
+                shape: 'circle',
+                borderStyle: 'solid',
+                borderWidth: 2,
+                borderColor: '#000000',
+                aspectRatio: 1
+            },
+            {
+                id: 'splash_panel',
+                name: 'Splash Panel',
+                shape: 'splash',
+                borderStyle: 'solid',
+                borderWidth: 3,
+                borderColor: '#000000',
+                aspectRatio: 1.3
+            }
+        ];
 
-        this.pages = [];
-        for (let i = 0; i < totalPages; i++) {
-            this.pages.push(this.createPageData(i + 1));
-        }
+        templates.forEach(template => {
+            this.panelTemplates.set(template.id, template);
+        });
 
-        this.log(`Initialized ${totalPages} pages`);
+        this.log(`Initialized ${templates.length} panel templates`);
     }
 
     /**
-     * <summary>Create page data structure</summary>
-     * @param {number} pageNumber - Page number
-     * @returns {Object} Page data object
+     * <summary>Initialize layout templates</summary>
      */
-    createPageData(pageNumber) {
+    initializeLayoutTemplates() {
+        const templates = [
+            {
+                id: 'grid_2x2',
+                name: '2×2 Grid Layout',
+                description: 'Classic 4-panel grid',
+                panels: [
+                    { x: 50, y: 50, width: 320, height: 200, templateId: 'standard_rect' },
+                    { x: 430, y: 50, width: 320, height: 200, templateId: 'standard_rect' },
+                    { x: 50, y: 300, width: 320, height: 200, templateId: 'standard_rect' },
+                    { x: 430, y: 300, width: 320, height: 200, templateId: 'standard_rect' }
+                ]
+            },
+            {
+                id: 'manga_vertical',
+                name: 'Manga Vertical Layout',
+                description: 'Vertical manga-style panels',
+                panels: [
+                    { x: 50, y: 50, width: 700, height: 120, templateId: 'wide_panel' },
+                    { x: 50, y: 190, width: 340, height: 180, templateId: 'standard_rect' },
+                    { x: 410, y: 190, width: 340, height: 180, templateId: 'standard_rect' },
+                    { x: 50, y: 390, width: 700, height: 160, templateId: 'wide_panel' }
+                ]
+            },
+            {
+                id: 'action_sequence',
+                name: 'Action Sequence Layout',
+                description: 'Dynamic action flow',
+                panels: [
+                    { x: 50, y: 50, width: 200, height: 200, templateId: 'square_panel' },
+                    { x: 270, y: 50, width: 480, height: 120, templateId: 'wide_panel' },
+                    { x: 270, y: 190, width: 230, height: 180, templateId: 'standard_rect' },
+                    { x: 520, y: 190, width: 230, height: 180, templateId: 'standard_rect' },
+                    { x: 50, y: 280, width: 200, height: 240, templateId: 'tall_panel' }
+                ]
+            },
+            {
+                id: 'splash_focus',
+                name: 'Splash Focus Layout',
+                description: 'Large focus panel with supporting panels',
+                panels: [
+                    { x: 50, y: 50, width: 500, height: 350, templateId: 'splash_panel' },
+                    { x: 570, y: 50, width: 180, height: 170, templateId: 'standard_rect' },
+                    { x: 570, y: 240, width: 180, height: 160, templateId: 'standard_rect' }
+                ]
+            }
+        ];
+
+        templates.forEach(template => {
+            this.layoutTemplates.set(template.id, template);
+        });
+
+        this.log(`Initialized ${templates.length} layout templates`);
+    }
+
+    /**
+     * <summary>Create default page</summary>
+     */
+    createDefaultPage() {
+        const defaultPage = this.createPageData();
+        this.pages.push(defaultPage);
+        this.currentPage = 0;
+    }
+
+    /**
+     * <summary>Create new page data structure</summary>
+     */
+    createPageData() {
         return {
-            id: `page_${pageNumber}`,
-            number: pageNumber,
-            panels: [],
-            backgroundImage: null,
-            layoutTemplate: 'custom',
+            id: `page_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            number: this.pages.length + 1,
+            title: `Page ${this.pages.length + 1}`,
             width: 800,
-            height: 1000,
+            height: 600,
+            backgroundColor: '#ffffff',
+            backgroundImage: null,
+            panels: [],
+            readingFlow: [],
+            notes: '',
             createdDate: Date.now(),
             lastModified: Date.now()
         };
     }
 
     /**
-     * <summary>Initialize panel templates</summary>
-     */
-    initializePanelTemplates() {
-        this.panelTemplates = [
-            {
-                id: 'grid-2x2',
-                name: '2�2 Grid',
-                panels: [
-                    { x: 50, y: 50, width: 320, height: 200, borderStyle: 'solid' },
-                    { x: 430, y: 50, width: 320, height: 200, borderStyle: 'solid' },
-                    { x: 50, y: 300, width: 320, height: 200, borderStyle: 'solid' },
-                    { x: 430, y: 300, width: 320, height: 200, borderStyle: 'solid' }
-                ]
-            },
-            {
-                id: 'grid-3x3',
-                name: '3�3 Grid',
-                panels: [
-                    { x: 50, y: 50, width: 200, height: 150, borderStyle: 'solid' },
-                    { x: 300, y: 50, width: 200, height: 150, borderStyle: 'solid' },
-                    { x: 550, y: 50, width: 200, height: 150, borderStyle: 'solid' },
-                    { x: 50, y: 250, width: 200, height: 150, borderStyle: 'solid' },
-                    { x: 300, y: 250, width: 200, height: 150, borderStyle: 'solid' },
-                    { x: 550, y: 250, width: 200, height: 150, borderStyle: 'solid' },
-                    { x: 50, y: 450, width: 200, height: 150, borderStyle: 'solid' },
-                    { x: 300, y: 450, width: 200, height: 150, borderStyle: 'solid' },
-                    { x: 550, y: 450, width: 200, height: 150, borderStyle: 'solid' }
-                ]
-            },
-            {
-                id: 'manga-vert',
-                name: 'Manga Vertical',
-                panels: [
-                    { x: 50, y: 50, width: 700, height: 150, borderStyle: 'solid' },
-                    { x: 50, y: 220, width: 340, height: 200, borderStyle: 'solid' },
-                    { x: 410, y: 220, width: 340, height: 200, borderStyle: 'solid' },
-                    { x: 50, y: 440, width: 700, height: 180, borderStyle: 'solid' }
-                ]
-            },
-            {
-                id: 'splash',
-                name: 'Splash Page',
-                panels: [
-                    { x: 50, y: 50, width: 700, height: 900, borderStyle: 'solid' }
-                ]
-            }
-        ];
-    }
-
-    /**
-     * <summary>Setup event handlers for layout management</summary>
+     * <summary>Setup event handlers</summary>
      */
     setupEventHandlers() {
         this.log('Setting up layout event handlers...');
 
-        // Page selection
-        const pageSelector = document.getElementById('cbg-current-page');
-        if (pageSelector) {
-            pageSelector.addEventListener('change', (e) => {
-                this.switchToPage(parseInt(e.target.value) - 1);
-            });
-        }
-
-        // Template selection
-        const templateSelector = document.getElementById('cbg-layout-templates');
-        if (templateSelector) {
-            templateSelector.addEventListener('change', (e) => {
-                if (e.target.value) {
-                    this.applyTemplate(e.target.value);
-                }
-            });
-        }
-
-        // Add panel button
-        const addPanelBtn = document.getElementById('cbg-add-panel');
-        if (addPanelBtn) {
-            addPanelBtn.addEventListener('click', () => this.addPanel());
-        }
-
-        // Save page button
-        const savePageBtn = document.getElementById('cbg-save-page');
-        if (savePageBtn) {
-            savePageBtn.addEventListener('click', () => this.savePage());
-        }
-    }
-
-    /**
-     * <summary>Render the layout management interface</summary>
-     */
-    async render() {
-        try {
-            this.log('Rendering layout interface...');
-
-            await this.updatePageSelector();
-            await this.renderCanvas();
-            await this.renderPanelInspector();
-
-        } catch (error) {
-            this.handleError('Failed to render layout interface', error);
-        }
-    }
-
-    /**
-     * <summary>Update the page selector dropdown</summary>
-     */
-    async updatePageSelector() {
-        const selector = document.getElementById('cbg-current-page');
-        if (!selector) return;
-
-        let html = '';
-        this.pages.forEach((page, index) => {
-            const selected = index === this.currentPage ? ' selected' : '';
-            html += `<option value="${page.number}"${selected}>Page ${page.number}</option>`;
+        // Page navigation
+        this.main.eventManager.on('cbg-current-page', 'change', (e) => {
+            const val = parseInt(e.target.value);
+            if (!isNaN(val)) this.switchToPage(val - 1);
+        });
+        
+        // Layout templates
+        this.main.eventManager.on('cbg-layout-templates', 'change', (e) => {
+            if (e.target.value) {
+                this.applyLayoutTemplate(e.target.value);
+            }
         });
 
-        selector.innerHTML = html;
+        // Add panel button
+        this.main.eventManager.on('cbg-add-panel', 'click', () => this.addPanel());
+
+        // Save page button
+        this.main.eventManager.on('cbg-save-page', 'click', () => this.savePage());
+
+        // Keyboard shortcuts (document-level)
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 'z':
+                        e.preventDefault();
+                        if (e.shiftKey) {
+                            this.redo();
+                        } else {
+                            this.undo();
+                        }
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        this.savePage();
+                        break;
+                    case 'd':
+                        e.preventDefault();
+                        if (this.selectedPanel) {
+                            this.duplicatePanel(this.selectedPanel.id);
+                        }
+                        break;
+                    case 'Delete':
+                    case 'Backspace':
+                        if (this.selectedPanel) {
+                            e.preventDefault();
+                            this.deletePanel(this.selectedPanel.id);
+                        }
+                        break;
+                }
+            }
+        });
+}
+
+/**
+ * <summary>Render the layout management interface</summary>
+ */
+async render() {
+    try {
+        this.log('Rendering layout interface...');
+
+        await this.renderCanvas();
+        await this.renderPanelInspector();
+        this.updatePageNavigation();
+
+    } catch (error) {
+        this.handleError('Failed to render layout interface', error);
+    }
+}
+
+/**
+ * <summary>Render the main canvas</summary>
+ */
+async renderCanvas() {
+    const canvas = getRequiredElementById('cbg-layout-canvas');
+
+    const currentPageData = this.getCurrentPage();
+    if (!currentPageData) {
+        canvas.innerHTML = '<div class="empty-canvas">No page selected</div>';
+        return;
+    }
+
+    this.log(`Rendering canvas for page ${currentPageData.number}`);
+
+    // Clear canvas
+    canvas.innerHTML = '';
+
+    // Apply canvas styles
+    canvas.style.position = 'relative';
+    canvas.style.width = `${currentPageData.width}px`;
+    canvas.style.height = `${currentPageData.height}px`;
+    canvas.style.backgroundColor = currentPageData.backgroundColor;
+    canvas.style.transform = `scale(${this.canvasZoom / 100})`;
+    canvas.style.transformOrigin = 'top left';
+    canvas.style.border = '2px solid #ccc';
+    canvas.style.borderRadius = '8px';
+    canvas.style.overflow = 'hidden';
+
+    // Add background image if set
+    if (currentPageData.backgroundImage) {
+        canvas.style.backgroundImage = `url(${currentPageData.backgroundImage})`;
+        canvas.style.backgroundSize = 'cover';
+        canvas.style.backgroundPosition = 'center';
+    }
+
+    // Render grid if enabled
+    if (this.showGrid) {
+        this.renderGrid(canvas, currentPageData);
+    }
+
+    // Render panels
+    currentPageData.panels.forEach(panel => {
+        this.renderPanel(canvas, panel);
+    });
+
+    // Render reading flow if panels exist
+    if (currentPageData.panels.length > 1) {
+        this.renderReadingFlow(canvas, currentPageData);
+    }
+}
+
+    /**
+     * <summary>Render scene tab for panel inspector</summary>
+     */
+    async renderSceneTab(panel) {
+        const storyManager = this.main.getManager('story');
+        const characterManager = this.main.getManager('characters');
+        const characters = characterManager ? characterManager.getAllCharacters() : [];
+
+        return `
+            <!-- Scene Context -->
+            <div class="scene-context mb-4">
+                <h6>Scene Context</h6>
+                
+                ${makeTextInput(null, 'cbg-panel-scene-summary', 'panel_scene_summary', 'What\'s Happening',
+            'Brief description of this scene', panel.sceneSummary || '', 'big',
+            'Hero confronts villain on rooftop, tension builds...')}
+
+                <div class="row">
+                    <div class="col-6">
+                        ${makeDropdownInput(null, 'cbg-panel-shot-type', 'panel_shot_type', 'Shot Type',
+                'Camera angle/framing',
+                ['Wide Shot', 'Medium Shot', 'Close-up', 'Extreme Close-up', 'Bird\'s Eye', 'Low Angle', 'High Angle'],
+                panel.shotType || 'Medium Shot')}
+                    </div>
+                    <div class="col-6">
+                        ${makeDropdownInput(null, 'cbg-panel-time-of-day', 'panel_time_of_day', 'Time/Lighting',
+                    'Scene lighting and atmosphere',
+                    ['Dawn', 'Morning', 'Midday', 'Afternoon', 'Sunset', 'Night', 'Indoor', 'Artificial Light'],
+                    panel.timeOfDay || 'Midday')}
+                    </div>
+                </div>
+
+                ${makeTextInput(null, 'cbg-panel-mood', 'panel_mood', 'Mood & Atmosphere',
+                        'Emotional tone of the scene', panel.mood || '', 'normal',
+                        'Tense, peaceful, chaotic, mysterious...')}
+            </div>
+
+            <!-- Narrative Flow -->
+            <div class="narrative-flow mb-4">
+                <h6>Narrative Flow</h6>
+                
+                <div class="flow-context">
+                    <div class="row">
+                        <div class="col-12 mb-2">
+                            <label class="form-label small">Previous Panel Context:</label>
+                            <textarea class="form-control form-control-sm" id="cbg-previous-context" rows="2" 
+                                      placeholder="What happened in the previous panel...">${panel.previousContext || ''}</textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small">Next Panel Setup:</label>
+                            <textarea class="form-control form-control-sm" id="cbg-next-context" rows="2" 
+                                      placeholder="How this sets up the next panel...">${panel.nextContext || ''}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Character Selection -->
+            <div class="character-selection mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6>Characters in Scene</h6>
+                    <button class="btn btn-sm btn-outline-primary" id="cbg-add-character-to-scene">
+                        <i class="fas fa-plus"></i> Add Character
+                    </button>
+                </div>
+                
+                <div id="cbg-scene-characters">
+                    ${this.renderSceneCharacters(panel, characters)}
+                </div>
+            </div>
+
+            <!-- Scene Generation -->
+            <div class="scene-generation mb-4">
+                <h6>AI Scene Generation</h6>
+                
+                <div class="generation-controls">
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <select class="form-select form-select-sm" id="cbg-art-style">
+                                <option value="comic">Comic Book Style</option>
+                                <option value="manga">Manga Style</option>
+                                <option value="realistic">Realistic</option>
+                                <option value="cartoon">Cartoon</option>
+                                <option value="noir">Film Noir</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <select class="form-select form-select-sm" id="cbg-generation-quality">
+                                <option value="draft">Draft Quality</option>
+                                <option value="standard">Standard Quality</option>
+                                <option value="high">High Quality</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="generation-buttons d-flex gap-1 flex-wrap">
+                        <button class="btn btn-sm btn-success" id="cbg-generate-scene">
+                            <i class="fas fa-magic"></i> Generate Scene
+                        </button>
+                        <button class="btn btn-sm btn-info" id="cbg-generate-background">
+                            <i class="fas fa-image"></i> Background Only
+                        </button>
+                        <button class="btn btn-sm btn-warning" id="cbg-generate-variations">
+                            <i class="fas fa-dice"></i> Variations
+                        </button>
+                        <button class="btn btn-sm btn-secondary" id="cbg-refine-scene">
+                            <i class="fas fa-sync-alt"></i> Refine
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Generation Progress -->
+                <div id="cbg-generation-progress" class="generation-progress mt-2" style="display: none;">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted mt-1 d-block" id="cbg-generation-status">Initializing...</small>
+                </div>
+
+                <!-- Generated Images -->
+                <div id="cbg-generated-images" class="generated-images mt-3">
+                    ${panel.generatedImages ? this.renderGeneratedImages(panel.generatedImages) : ''}
+                </div>
+            </div>
+
+            <!-- Manual Image Upload -->
+            <div class="manual-upload">
+                <h6>Manual Scene Image</h6>
+                <div class="upload-area">
+                    <input type="file" id="cbg-scene-image-upload" accept="image/*" class="d-none">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('cbg-scene-image-upload').click()">
+                        <i class="fas fa-upload"></i> Upload Image
+                    </button>
+                    ${panel.sceneImage ? '<button class="btn btn-outline-danger btn-sm ms-2" id="cbg-remove-scene-image"><i class="fas fa-trash"></i> Remove</button>' : ''}
+                </div>
+            </div>
+        `;
     }
 
     /**
-     * <summary>Render the layout canvas</summary>
+     * <summary>Render scene characters</summary>
      */
-    async renderCanvas() {
-        const canvas = document.getElementById('cbg-layout-canvas');
-        if (!canvas) {
-            throw new Error('Layout canvas not found');
+    renderSceneCharacters(panel, characters) {
+        const sceneCharacters = panel.characters || [];
+
+        if (sceneCharacters.length === 0) {
+            return `
+                <div class="empty-characters text-center p-3 text-muted">
+                    <i class="fas fa-users fa-2x mb-2"></i>
+                    <p class="small mb-0">No characters in this scene</p>
+                </div>
+            `;
         }
 
-        this.log(`Rendering canvas for page ${this.currentPage + 1}`);
+        return sceneCharacters.map((sceneChar, index) => {
+            const character = characters.find(c => c.id === sceneChar.characterId);
+            if (!character) return '';
 
-        const currentPageData = this.pages[this.currentPage];
-        if (!currentPageData) {
-            canvas.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-soft);">No page data found</div>';
+            return `
+                <div class="scene-character-card mb-2" data-scene-char-index="${index}">
+                    <div class="card card-body p-2">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center">
+                                <div class="character-avatar me-2" style="width: 32px; height: 32px; border-radius: 50%; background: ${this.getRoleColor(character.role)}20; display: flex; align-items: center; justify-content: center; font-weight: bold; color: ${this.getRoleColor(character.role)};">
+                                    ${character.name ? character.name.charAt(0).toUpperCase() : '?'}
+                                </div>
+                                <div>
+                                    <div class="fw-bold small">${character.name || 'Unnamed Character'}</div>
+                                    <div class="text-muted" style="font-size: 11px;">${character.role || 'Unknown Role'}</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger remove-scene-character" data-character-id="${character.id}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="character-scene-details mt-2">
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label" style="font-size: 11px;">Position:</label>
+                                    <select class="form-select form-select-sm character-position" data-character-id="${character.id}">
+                                        <option value="foreground" ${sceneChar.position === 'foreground' ? 'selected' : ''}>Foreground</option>
+                                        <option value="midground" ${sceneChar.position === 'midground' ? 'selected' : ''}>Midground</option>
+                                        <option value="background" ${sceneChar.position === 'background' ? 'selected' : ''}>Background</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label" style="font-size: 11px;">Expression:</label>
+                                    <select class="form-select form-select-sm character-expression" data-character-id="${character.id}">
+                                        <option value="neutral" ${sceneChar.expression === 'neutral' ? 'selected' : ''}>Neutral</option>
+                                        <option value="happy" ${sceneChar.expression === 'happy' ? 'selected' : ''}>Happy</option>
+                                        <option value="sad" ${sceneChar.expression === 'sad' ? 'selected' : ''}>Sad</option>
+                                        <option value="angry" ${sceneChar.expression === 'angry' ? 'selected' : ''}>Angry</option>
+                                        <option value="surprised" ${sceneChar.expression === 'surprised' ? 'selected' : ''}>Surprised</option>
+                                        <option value="worried" ${sceneChar.expression === 'worried' ? 'selected' : ''}>Worried</option>
+                                        <option value="determined" ${sceneChar.expression === 'determined' ? 'selected' : ''}>Determined</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-2">
+                                <label class="form-label" style="font-size: 11px;">Action/Pose:</label>
+                                <input type="text" class="form-control form-control-sm character-action" 
+                                       data-character-id="${character.id}"
+                                       placeholder="What is the character doing?"
+                                       value="${sceneChar.action || ''}">
+                            </div>
+                            
+                            <div class="character-quick-ref mt-2 p-1 bg-light rounded">
+                                <small class="text-muted">
+                                    <strong>Appearance:</strong> ${character.appearance ? character.appearance.substring(0, 80) + '...' : 'Not defined'}<br>
+                                    <strong>Personality:</strong> ${character.personality ? character.personality.substring(0, 80) + '...' : 'Not defined'}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
+     * <summary>Render dialogue tab</summary>
+     */
+    renderDialogueTab(panel) {
+        const dialogues = panel.dialogues || [];
+
+        return `
+            <div class="dialogue-management">
+                <!-- Dialogue List -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6>Speech Bubbles & Dialogue</h6>
+                    <button class="btn btn-sm btn-outline-primary" id="cbg-add-dialogue">
+                        <i class="fas fa-plus"></i> Add Dialogue
+                    </button>
+                </div>
+
+                <div id="cbg-dialogue-list">
+                    ${dialogues.length === 0 ? `
+                        <div class="empty-dialogues text-center p-3 text-muted">
+                            <i class="fas fa-comment fa-2x mb-2"></i>
+                            <p class="small mb-0">No dialogue in this panel</p>
+                        </div>
+                    ` : dialogues.map((dialogue, index) => this.renderDialogueCard(dialogue, index)).join('')}
+                </div>
+
+                <!-- AI Dialogue Tools -->
+                <div class="ai-dialogue-tools mt-4">
+                    <h6>AI Dialogue Enhancement</h6>
+                    <div class="d-flex gap-1 flex-wrap">
+                        <button class="btn btn-sm btn-outline-success" id="cbg-suggest-dialogue">
+                            <i class="fas fa-robot"></i> Suggest Dialogue
+                        </button>
+                        <button class="btn btn-sm btn-outline-info" id="cbg-improve-dialogue">
+                            <i class="fas fa-sync-alt"></i> Improve Existing
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning" id="cbg-check-voice-consistency">
+                            <i class="fas fa-check-circle"></i> Check Voice
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * <summary>Render individual dialogue card</summary>
+     */
+    renderDialogueCard(dialogue, index) {
+        const characterManager = this.main.getManager('characters');
+        const character = dialogue.characterId && characterManager ?
+            characterManager.getCharacter(dialogue.characterId) : null;
+
+        return `
+            <div class="dialogue-card mb-3" data-dialogue-index="${index}">
+                <div class="card">
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="dialogue-header">
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-secondary me-2">${index + 1}</span>
+                                    <select class="form-select form-select-sm me-2" style="width: auto;" id="cbg-dialogue-character-${index}">
+                                        <option value="">Select Character...</option>
+                                        ${characterManager ? characterManager.getAllCharacters().map(char =>
+            `<option value="${char.id}" ${dialogue.characterId === char.id ? 'selected' : ''}>${char.name}</option>`
+        ).join('') : ''}
+                                        <option value="narrator" ${dialogue.characterId === 'narrator' ? 'selected' : ''}>Narrator</option>
+                                    </select>
+                                    <select class="form-select form-select-sm" style="width: auto;" id="cbg-dialogue-type-${index}">
+                                        <option value="speech" ${dialogue.type === 'speech' ? 'selected' : ''}>Speech</option>
+                                        <option value="thought" ${dialogue.type === 'thought' ? 'selected' : ''}>Thought</option>
+                                        <option value="caption" ${dialogue.type === 'caption' ? 'selected' : ''}>Caption</option>
+                                        <option value="whisper" ${dialogue.type === 'whisper' ? 'selected' : ''}>Whisper</option>
+                                        <option value="shout" ${dialogue.type === 'shout' ? 'selected' : ''}>Shout</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger remove-dialogue" data-dialogue-index="${index}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+
+                        <div class="dialogue-content">
+                            <textarea class="form-control form-control-sm mb-2" 
+                                      id="cbg-dialogue-text-${index}"
+                                      placeholder="Enter dialogue text..."
+                                      rows="2">${dialogue.text || ''}</textarea>
+                            
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label small">X Position (%):</label>
+                                    <input type="range" class="form-range" 
+                                           id="cbg-dialogue-x-${index}"
+                                           min="0" max="80" value="${dialogue.x || 20}">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Y Position (%):</label>
+                                    <input type="range" class="form-range" 
+                                           id="cbg-dialogue-y-${index}"
+                                           min="0" max="80" value="${dialogue.y || 20}">
+                                </div>
+                            </div>
+                        </div>
+
+                        ${character ? `
+                            <div class="character-voice-hint mt-2 p-2 bg-light rounded">
+                                <small class="text-muted">
+                                    <strong>${character.name}'s voice:</strong> ${character.speechPattern || character.personality || 'No voice info available'}
+                                </small>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * <summary>Render style tab</summary>
+     */
+    renderStyleTab(panel) {
+        return `
+            <div class="panel-style-editor">
+                <!-- Panel Appearance -->
+                <div class="panel-appearance mb-4">
+                    <h6>Panel Appearance</h6>
+                    
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label small">Border Width:</label>
+                            <input type="range" class="form-range" id="cbg-panel-border-width" 
+                                   min="0" max="10" value="${panel.borderWidth || 2}">
+                            <small class="text-muted">${panel.borderWidth || 2}px</small>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Border Color:</label>
+                            <input type="color" class="form-control form-control-sm" 
+                                   id="cbg-panel-border-color" value="${panel.borderColor || '#000000'}">
+                        </div>
+                    </div>
+
+                    <div class="row mt-2">
+                        <div class="col-6">
+                            <label class="form-label small">Border Style:</label>
+                            <select class="form-select form-select-sm" id="cbg-panel-border-style">
+                                <option value="solid" ${panel.borderStyle === 'solid' ? 'selected' : ''}>Solid</option>
+                                <option value="dashed" ${panel.borderStyle === 'dashed' ? 'selected' : ''}>Dashed</option>
+                                <option value="dotted" ${panel.borderStyle === 'dotted' ? 'selected' : ''}>Dotted</option>
+                                <option value="double" ${panel.borderStyle === 'double' ? 'selected' : ''}>Double</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Background:</label>
+                            <input type="color" class="form-control form-control-sm" 
+                                   id="cbg-panel-bg-color" value="${panel.backgroundColor || '#ffffff'}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel Shape -->
+                <div class="panel-shape mb-4">
+                    <h6>Panel Shape</h6>
+                    <div class="shape-options">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="panelShape" value="rectangle" 
+                                           ${(panel.shape || 'rectangle') === 'rectangle' ? 'checked' : ''}>
+                                    <label class="form-check-label">Rectangle</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="panelShape" value="circle" 
+                                           ${panel.shape === 'circle' ? 'checked' : ''}>
+                                    <label class="form-check-label">Circle</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="panelShape" value="splash" 
+                                           ${panel.shape === 'splash' ? 'checked' : ''}>
+                                    <label class="form-check-label">Splash</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="panelShape" value="irregular" 
+                                           ${panel.shape === 'irregular' ? 'checked' : ''}>
+                                    <label class="form-check-label">Irregular</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${panel.shape === 'rectangle' ? `
+                        <div class="border-radius-control mt-2">
+                            <label class="form-label small">Corner Radius:</label>
+                            <input type="range" class="form-range" id="cbg-panel-border-radius" 
+                                   min="0" max="20" value="${panel.borderRadius || 0}">
+                            <small class="text-muted">${panel.borderRadius || 0}px</small>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- Visual Effects -->
+                <div class="panel-effects mb-4">
+                    <h6>Visual Effects</h6>
+                    
+                    <div class="effect-options">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="cbg-panel-shadow" 
+                                   ${panel.dropShadow ? 'checked' : ''}>
+                            <label class="form-check-label">Drop Shadow</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="cbg-panel-glow" 
+                                   ${panel.glow ? 'checked' : ''}>
+                            <label class="form-check-label">Inner Glow</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="cbg-panel-vintage" 
+                                   ${panel.vintageEffect ? 'checked' : ''}>
+                            <label class="form-check-label">Vintage Effect</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Style Presets -->
+                <div class="style-presets">
+                    <h6>Style Presets</h6>
+                    <div class="preset-buttons d-flex gap-1 flex-wrap">
+                        <button class="btn btn-sm btn-outline-secondary apply-style-preset" data-preset="classic">Classic</button>
+                        <button class="btn btn-sm btn-outline-secondary apply-style-preset" data-preset="manga">Manga</button>
+                        <button class="btn btn-sm btn-outline-secondary apply-style-preset" data-preset="modern">Modern</button>
+                        <button class="btn btn-sm btn-outline-secondary apply-style-preset" data-preset="noir">Noir</button>
+                        <button class="btn btn-sm btn-outline-secondary apply-style-preset" data-preset="cartoon">Cartoon</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * <summary>Render effects tab</summary>
+     */
+    renderEffectsTab(panel) {
+        const effects = panel.effects || [];
+
+        return `
+            <div class="panel-effects-editor">
+                <!-- Effects List -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6>Visual Effects & Overlays</h6>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-plus"></i> Add Effect
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item add-effect" data-effect-type="motion-lines">Motion Lines</a></li>
+                            <li><a class="dropdown-item add-effect" data-effect-type="impact">Impact Effect</a></li>
+                            <li><a class="dropdown-item add-effect" data-effect-type="energy">Energy Aura</a></li>
+                            <li><a class="dropdown-item add-effect" data-effect-type="particles">Particles</a></li>
+                            <li><a class="dropdown-item add-effect" data-effect-type="weather">Weather</a></li>
+                            <li><a class="dropdown-item add-effect" data-effect-type="lighting">Lighting</a></li>
+                            <li><a class="dropdown-item add-effect" data-effect-type="text-sfx">Text SFX</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div id="cbg-effects-list">
+                    ${effects.length === 0 ? `
+                        <div class="empty-effects text-center p-3 text-muted">
+                            <i class="fas fa-magic fa-2x mb-2"></i>
+                            <p class="small mb-0">No effects added yet</p>
+                        </div>
+                    ` : effects.map((effect, index) => this.renderEffectCard(effect, index)).join('')}
+                </div>
+
+                <!-- Effect Library -->
+                <div class="effect-library mt-4">
+                    <h6>Effect Library</h6>
+                    <div class="effect-presets">
+                        <div class="row">
+                            <div class="col-6">
+                                <button class="btn btn-sm btn-outline-secondary w-100 mb-1" data-preset="explosion">💥 Explosion</button>
+                                <button class="btn btn-sm btn-outline-secondary w-100 mb-1" data-preset="speed-lines">⚡ Speed Lines</button>
+                                <button class="btn btn-sm btn-outline-secondary w-100 mb-1" data-preset="magic-sparkles">✨ Magic</button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-sm btn-outline-secondary w-100 mb-1" data-preset="smoke">💨 Smoke</button>
+                                <button class="btn btn-sm btn-outline-secondary w-100 mb-1" data-preset="rain">🌧️ Rain</button>
+                                <button class="btn btn-sm btn-outline-secondary w-100 mb-1" data-preset="fire">🔥 Fire</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * <summary>Render effect card</summary>
+     */
+    renderEffectCard(effect, index) {
+        return `
+            <div class="effect-card mb-2" data-effect-index="${index}">
+                <div class="card">
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <strong class="small">${effect.name || effect.type}</strong>
+                                <div class="text-muted" style="font-size: 11px;">${effect.description || 'No description'}</div>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger remove-effect" data-effect-index="${index}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="effect-controls">
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label small">X Position:</label>
+                                    <input type="range" class="form-range" min="0" max="100" 
+                                           value="${effect.x || 50}" data-property="x" data-effect-index="${index}">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Y Position:</label>
+                                    <input type="range" class="form-range" min="0" max="100" 
+                                           value="${effect.y || 50}" data-property="y" data-effect-index="${index}">
+                                </div>
+                            </div>
+                            <div class="row mt-1">
+                                <div class="col-6">
+                                    <label class="form-label small">Intensity:</label>
+                                    <input type="range" class="form-range" min="1" max="10" 
+                                           value="${effect.intensity || 5}" data-property="intensity" data-effect-index="${index}">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Opacity:</label>
+                                    <input type="range" class="form-range" min="0" max="100" 
+                                           value="${effect.opacity || 100}" data-property="opacity" data-effect-index="${index}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * <summary>Render generated images</summary>
+     */
+    renderGeneratedImages(images) {
+        if (!images || images.length === 0) {
+            return '<p class="text-muted small">No generated images yet</p>';
+        }
+
+        return `
+            <div class="generated-images-grid">
+                ${images.map((image, index) => `
+                    <div class="generated-image-card" data-image-index="${index}">
+                        <img src="${image.url}" alt="Generated scene" style="width: 100%; height: auto; border-radius: 4px;">
+                        <div class="image-actions mt-1">
+                            <button class="btn btn-sm btn-outline-primary use-generated-image" data-image-index="${index}">
+                                <i class="fas fa-check"></i> Use This
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary refine-generated-image" data-image-index="${index}">
+                                <i class="fas fa-sync-alt"></i> Refine
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    // Mouse event handlers for canvas interaction
+
+    /**
+     * <summary>Handle mouse down on canvas</summary>
+     */
+    handleMouseDown(event) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = (event.clientX - rect.left) / (this.canvasZoom / 100);
+        const y = (event.clientY - rect.top) / (this.canvasZoom / 100);
+
+        // Check if clicking on resize handle
+        const resizeHandle = event.target.closest('.panel-resize-handle');
+        if (resizeHandle) {
+            this.isResizing = true;
+            this.resizeHandle = resizeHandle.className.split(' ').find(c => ['nw', 'ne', 'sw', 'se'].includes(c));
+            this.dragStart = { x, y };
+            event.preventDefault();
             return;
         }
 
-        // Clear canvas
-        canvas.innerHTML = '';
+        // Check if clicking on panel
+        const panel = event.target.closest('.comic-panel');
+        if (panel) {
+            const panelId = panel.dataset.panelId;
+            const currentPage = this.getCurrentPage();
+            const panelData = currentPage.panels.find(p => p.id === panelId);
 
-        // Set canvas dimensions
-        canvas.style.width = '100%';
-        canvas.style.height = '100%';
-        canvas.style.aspectRatio = `${currentPageData.width}/${currentPageData.height}`;
-
-        // Render panels
-        currentPageData.panels.forEach(panel => {
-            this.renderPanel(canvas, panel);
-        });
-
-        // Setup canvas event handlers
-        this.setupCanvasHandlers(canvas);
-
-        // Store canvas rect for calculations
-        this.canvasRect = canvas.getBoundingClientRect();
-    }
-
-    /**
-     * <summary>Render a single panel on the canvas</summary>
-     * @param {HTMLElement} canvas - Canvas container
-     * @param {Object} panel - Panel data
-     */
-    renderPanel(canvas, panel) {
-        const panelElement = document.createElement('div');
-        panelElement.className = 'comic-panel';
-        panelElement.dataset.panelId = panel.id;
-
-        // Position and size (convert from canvas coordinates to percentages)
-        const canvasWidth = canvas.offsetWidth || 800;
-        const canvasHeight = canvas.offsetHeight || 1000;
-
-        panelElement.style.left = `${(panel.x / canvasWidth) * 100}%`;
-        panelElement.style.top = `${(panel.y / canvasHeight) * 100}%`;
-        panelElement.style.width = `${(panel.width / canvasWidth) * 100}%`;
-        panelElement.style.height = `${(panel.height / canvasHeight) * 100}%`;
-
-        // Styling
-        panelElement.style.borderWidth = `${panel.borderWidth || 2}px`;
-        panelElement.style.borderStyle = panel.borderStyle || 'solid';
-        panelElement.style.borderColor = panel.borderColor || '#000';
-        panelElement.style.backgroundColor = panel.backgroundColor || 'white';
-
-        // Panel content
-        let contentHtml = '';
-
-        if (panel.sceneImage) {
-            contentHtml += `<img src="${panel.sceneImage}" style="width: 100%; height: 100%; object-fit: cover;" alt="Panel scene">`;
-        } else if (panel.sceneDescription) {
-            contentHtml += `<div style="display: flex; align-items: center; justify-content: center; height: 100%; padding: 0.5rem; font-size: 0.8rem; color: var(--text-soft); text-align: center; background: rgba(255,255,255,0.9);">${escapeHtml(panel.sceneDescription.substring(0, 100))}${panel.sceneDescription.length > 100 ? '...' : ''}</div>`;
-        } else {
-            contentHtml += `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-soft); font-size: 0.9rem;">Panel ${panel.number || ''}</div>`;
+            if (panelData) {
+                this.selectPanel(panelData);
+                this.isDragging = true;
+                this.dragStart = { x: x - panelData.x, y: y - panelData.y };
+            }
+            event.preventDefault();
+            return;
         }
 
-        panelElement.innerHTML = contentHtml;
+        // Clicking on empty canvas - deselect panel
+        this.selectPanel(null);
+    }
 
-        // Add resize handles if selected
-        if (this.selectedPanel?.id === panel.id) {
-            panelElement.classList.add('selected');
-            this.addResizeHandles(panelElement);
+    /**
+     * <summary>Handle mouse move on canvas</summary>
+     */
+    handleMouseMove(event) {
+        if (!this.isDragging && !this.isResizing) return;
+
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = (event.clientX - rect.left) / (this.canvasZoom / 100);
+        const y = (event.clientY - rect.top) / (this.canvasZoom / 100);
+
+        if (this.isResizing && this.selectedPanel) {
+            this.handlePanelResize(x, y);
+        } else if (this.isDragging && this.selectedPanel) {
+            this.handlePanelDrag(x, y);
         }
 
-        canvas.appendChild(panelElement);
+        event.preventDefault();
     }
 
     /**
-     * <summary>Add resize handles to a panel</summary>
-     * @param {HTMLElement} panelElement - Panel element
+     * <summary>Handle mouse up on canvas</summary>
      */
-    addResizeHandles(panelElement) {
-        const positions = ['nw', 'ne', 'sw', 'se'];
-        positions.forEach(pos => {
-            const handle = document.createElement('div');
-            handle.className = `panel-resize-handle ${pos}`;
-            handle.dataset.position = pos;
-            panelElement.appendChild(handle);
-        });
-    }
-
-    /**
-     * <summary>Setup canvas event handlers</summary>
-     * @param {HTMLElement} canvas - Canvas element
-     */
-    setupCanvasHandlers(canvas) {
-        // Panel selection and dragging
-        canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e, canvas));
-        canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e, canvas));
-        canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e, canvas));
-        canvas.addEventListener('click', (e) => this.handleCanvasClick(e, canvas));
-
-        // Prevent default drag behaviors
-        canvas.addEventListener('dragstart', (e) => e.preventDefault());
-    }
-
-    /**
-     * <summary>Handle mouse down events on canvas</summary>
-     * @param {MouseEvent} e - Mouse event
-     * @param {HTMLElement} canvas - Canvas element
-     */
-    handleMouseDown(e, canvas) {
-        const panelElement = e.target.closest('.comic-panel');
-        const resizeHandle = e.target.closest('.panel-resize-handle');
-
-        if (resizeHandle && panelElement) {
-            // Start resizing
-            this.isResizing = true;
-            this.resizingPanel = panelElement;
-            this.resizeHandle = resizeHandle.dataset.position;
-            this.resizeStartRect = panelElement.getBoundingClientRect();
-            this.canvasRect = canvas.getBoundingClientRect();
-            e.preventDefault();
-        } else if (panelElement) {
-            // Start dragging
-            this.isDragging = true;
-            this.selectedPanel = this.getPanelById(panelElement.dataset.panelId);
-            this.draggingPanel = panelElement;
-
-            const panelRect = panelElement.getBoundingClientRect();
-            this.canvasRect = canvas.getBoundingClientRect();
-            this.dragOffset.x = e.clientX - panelRect.left;
-            this.dragOffset.y = e.clientY - panelRect.top;
-
-            this.selectPanel(this.selectedPanel);
-            e.preventDefault();
+    handleMouseUp(event) {
+        if (this.isDragging || this.isResizing) {
+            this.saveState(); // Save for undo
+            this.renderCanvas(); // Re-render to update
         }
+
+        this.isDragging = false;
+        this.isResizing = false;
+        this.resizeHandle = null;
     }
 
     /**
-     * <summary>Handle mouse move events on canvas</summary>
-     * @param {MouseEvent} e - Mouse event
-     * @param {HTMLElement} canvas - Canvas element
+     * <summary>Handle double click on canvas</summary>
      */
-    handleMouseMove(e, canvas) {
-        if (this.isDragging && this.draggingPanel) {
-            this.updatePanelPosition(e);
-        } else if (this.isResizing && this.resizingPanel) {
-            this.updatePanelSize(e);
-        }
-    }
-
-    /**
-     * <summary>Handle mouse up events on canvas</summary>
-     * @param {MouseEvent} e - Mouse event
-     * @param {HTMLElement} canvas - Canvas element
-     */
-    handleMouseUp(e, canvas) {
-        if (this.isDragging) {
-            this.isDragging = false;
-            this.draggingPanel = null;
-            this.updatePanelData();
-        } else if (this.isResizing) {
-            this.isResizing = false;
-            this.resizingPanel = null;
-            this.resizeHandle = null;
-            this.updatePanelData();
-        }
-    }
-
-    /**
-     * <summary>Handle canvas click events</summary>
-     * @param {MouseEvent} e - Mouse event
-     * @param {HTMLElement} canvas - Canvas element
-     */
-    handleCanvasClick(e, canvas) {
-        const panelElement = e.target.closest('.comic-panel');
-
-        if (panelElement) {
-            const panelId = panelElement.dataset.panelId;
-            const panel = this.getPanelById(panelId);
-            if (panel) {
-                this.selectPanel(panel);
+    handleDoubleClick(event) {
+        const panel = event.target.closest('.comic-panel');
+        if (panel) {
+            // Open panel editor modal or focus on inspector
+            const inspector = document.getElementById('cbg-panel-inspector-content');
+            if (inspector) {
+                inspector.scrollIntoView({ behavior: 'smooth' });
             }
         } else {
-            // Clicked on empty canvas
-            this.selectPanel(null);
+            // Double-click on empty space - add new panel
+            this.addPanelAtPosition(event);
         }
     }
 
     /**
-     * <summary>Update panel position during drag</summary>
-     * @param {MouseEvent} e - Mouse event
+     * <summary>Handle right click context menu</summary>
      */
-    updatePanelPosition(e) {
-        if (!this.draggingPanel || !this.canvasRect) return;
+    handleRightClick(event) {
+        event.preventDefault();
 
-        const newX = e.clientX - this.canvasRect.left - this.dragOffset.x;
-        const newY = e.clientY - this.canvasRect.top - this.dragOffset.y;
-
-        // Convert to percentages
-        const xPercent = (newX / this.canvasRect.width) * 100;
-        const yPercent = (newY / this.canvasRect.height) * 100;
-
-        // Constrain to canvas bounds
-        const constrainedX = Math.max(0, Math.min(95, xPercent));
-        const constrainedY = Math.max(0, Math.min(95, yPercent));
-
-        this.draggingPanel.style.left = `${constrainedX}%`;
-        this.draggingPanel.style.top = `${constrainedY}%`;
+        const panel = event.target.closest('.comic-panel');
+        if (panel) {
+            this.showPanelContextMenu(event, panel);
+        } else {
+            this.showCanvasContextMenu(event);
+        }
     }
 
     /**
-     * <summary>Update panel size during resize</summary>
-     * @param {MouseEvent} e - Mouse event
+     * <summary>Handle wheel zoom</summary>
      */
-    updatePanelSize(e) {
-        if (!this.resizingPanel || !this.canvasRect || !this.resizeStartRect) return;
+    handleWheel(event) {
+        if (event.ctrlKey) {
+            event.preventDefault();
 
-        const deltaX = e.clientX - (this.resizeStartRect.left + this.dragOffset.x);
-        const deltaY = e.clientY - (this.resizeStartRect.top + this.dragOffset.y);
+            const delta = event.deltaY > 0 ? -10 : 10;
+            this.setCanvasZoom(this.canvasZoom + delta);
+        }
+    }
 
-        // Calculate new dimensions based on resize handle position
-        let newWidth = this.resizeStartRect.width;
-        let newHeight = this.resizeStartRect.height;
-        let newLeft = this.resizeStartRect.left - this.canvasRect.left;
-        let newTop = this.resizeStartRect.top - this.canvasRect.top;
+    // Panel manipulation methods
 
+    /**
+     * <summary>Handle panel drag</summary>
+     */
+    handlePanelDrag(x, y) {
+        const newX = x - this.dragStart.x;
+        const newY = y - this.dragStart.y;
+
+        // Snap to grid if enabled
+        const snappedX = this.snapToGrid ? Math.round(newX / this.gridSize) * this.gridSize : newX;
+        const snappedY = this.snapToGrid ? Math.round(newY / this.gridSize) * this.gridSize : newY;
+
+        // Constrain to canvas bounds
+        const currentPage = this.getCurrentPage();
+        const constrainedX = Math.max(0, Math.min(currentPage.width - this.selectedPanel.width, snappedX));
+        const constrainedY = Math.max(0, Math.min(currentPage.height - this.selectedPanel.height, snappedY));
+
+        // Update panel position
+        this.selectedPanel.x = constrainedX;
+        this.selectedPanel.y = constrainedY;
+
+        // Update visual position immediately
+        const panelElement = document.querySelector(`[data-panel-id="${this.selectedPanel.id}"]`);
+        if (panelElement) {
+            panelElement.style.left = `${constrainedX}px`;
+            panelElement.style.top = `${constrainedY}px`;
+        }
+    }
+
+    /**
+     * <summary>Handle panel resize</summary>
+     */
+    handlePanelResize(x, y) {
+        const deltaX = x - this.dragStart.x;
+        const deltaY = y - this.dragStart.y;
+        const currentPage = this.getCurrentPage();
+
+        let newX = this.selectedPanel.x;
+        let newY = this.selectedPanel.y;
+        let newWidth = this.selectedPanel.width;
+        let newHeight = this.selectedPanel.height;
+
+        // Apply resize based on handle
         switch (this.resizeHandle) {
-            case 'se': // Bottom-right
-                newWidth += deltaX;
-                newHeight += deltaY;
-                break;
-            case 'sw': // Bottom-left
-                newWidth -= deltaX;
-                newHeight += deltaY;
-                newLeft += deltaX;
-                break;
-            case 'ne': // Top-right
-                newWidth += deltaX;
-                newHeight -= deltaY;
-                newTop += deltaY;
-                break;
-            case 'nw': // Top-left
+            case 'nw':
+                newX += deltaX;
+                newY += deltaY;
                 newWidth -= deltaX;
                 newHeight -= deltaY;
-                newLeft += deltaX;
-                newTop += deltaY;
+                break;
+            case 'ne':
+                newY += deltaY;
+                newWidth += deltaX;
+                newHeight -= deltaY;
+                break;
+            case 'sw':
+                newX += deltaX;
+                newWidth -= deltaX;
+                newHeight += deltaY;
+                break;
+            case 'se':
+                newWidth += deltaX;
+                newHeight += deltaY;
                 break;
         }
 
         // Apply minimum size constraints
-        newWidth = Math.max(50, newWidth);
-        newHeight = Math.max(50, newHeight);
+        const minSize = 50;
+        if (newWidth >= minSize && newHeight >= minSize) {
+            // Constrain to canvas bounds
+            newX = Math.max(0, Math.min(currentPage.width - newWidth, newX));
+            newY = Math.max(0, Math.min(currentPage.height - newHeight, newY));
 
-        // Convert to percentages
-        const widthPercent = (newWidth / this.canvasRect.width) * 100;
-        const heightPercent = (newHeight / this.canvasRect.height) * 100;
-        const leftPercent = (newLeft / this.canvasRect.width) * 100;
-        const topPercent = (newTop / this.canvasRect.height) * 100;
+            // Snap to grid if enabled
+            if (this.snapToGrid) {
+                newX = Math.round(newX / this.gridSize) * this.gridSize;
+                newY = Math.round(newY / this.gridSize) * this.gridSize;
+                newWidth = Math.round(newWidth / this.gridSize) * this.gridSize;
+                newHeight = Math.round(newHeight / this.gridSize) * this.gridSize;
+            }
 
-        this.resizingPanel.style.width = `${widthPercent}%`;
-        this.resizingPanel.style.height = `${heightPercent}%`;
-        this.resizingPanel.style.left = `${leftPercent}%`;
-        this.resizingPanel.style.top = `${topPercent}%`;
+            // Update panel properties
+            this.selectedPanel.x = newX;
+            this.selectedPanel.y = newY;
+            this.selectedPanel.width = newWidth;
+            this.selectedPanel.height = newHeight;
+
+            // Update visual immediately
+            const panelElement = document.querySelector(`[data-panel-id="${this.selectedPanel.id}"]`);
+            if (panelElement) {
+                panelElement.style.left = `${newX}px`;
+                panelElement.style.top = `${newY}px`;
+                panelElement.style.width = `${newWidth}px`;
+                panelElement.style.height = `${newHeight}px`;
+            }
+        }
     }
 
     /**
-     * <summary>Update panel data after drag/resize</summary>
+     * <summary>Select panel</summary>
      */
-    updatePanelData() {
-        if (!this.selectedPanel || !this.canvasRect) return;
-
-        const panelElement = document.querySelector(`[data-panel-id="${this.selectedPanel.id}"]`);
-        if (!panelElement) return;
-
-        const rect = panelElement.getBoundingClientRect();
-
-        // Convert back to canvas coordinates
-        this.selectedPanel.x = ((rect.left - this.canvasRect.left) / this.canvasRect.width) * 800;
-        this.selectedPanel.y = ((rect.top - this.canvasRect.top) / this.canvasRect.height) * 1000;
-        this.selectedPanel.width = (rect.width / this.canvasRect.width) * 800;
-        this.selectedPanel.height = (rect.height / this.canvasRect.height) * 1000;
-
-        this.selectedPanel.lastModified = Date.now();
-
-        // Update panel inspector
+    selectPanel(panel) {
+        this.selectedPanel = panel;
+        this.renderCanvas();
         this.renderPanelInspector();
 
-        this.log('Updated panel data:', this.selectedPanel);
-    }
-
-    /**
-     * <summary>Render the panel inspector</summary>
-     */
-    async renderPanelInspector() {
-        const container = document.getElementById('cbg-panel-inspector-content');
-        if (!container) {
-            throw new Error('Panel inspector container not found');
-        }
-
-        if (!this.selectedPanel) {
-            container.innerHTML = `
-                <div class="panel-inspector-placeholder">
-                    <div style="text-align: center; color: var(--text-soft); padding: 2rem;">
-                        <h4>No Panel Selected</h4>
-                        <p>Select a panel on the canvas to edit its properties, or click "Add Panel" to create a new one.</p>
-                    </div>
-                </div>
-            `;
-            return;
-        }
-
-        this.log('Rendering panel inspector for panel:', this.selectedPanel.id);
-
-        try {
-            let html = '';
-
-            // Panel Properties Section
-            html += '<div class="inspector-section" style="margin-bottom: 1.5rem;">';
-            html += '<h4>Panel Properties</h4>';
-
-            html += makeDropdownInput(null, 'cbg-panel-type', 'panel_type', 'Element Type',
-                'Type of element',
-                ['Panel', 'Speech Bubble', 'Caption Box', 'SFX Text'],
-                this.selectedPanel.type || 'Panel');
-
-            html += makeNumberInput(null, 'cbg-panel-number', 'panel_number', 'Panel Number',
-                'Panel sequence number', this.selectedPanel.number || 1, 1, 20, 1);
-
-            html += '</div>';
-
-            // Scene Generation Section
-            html += '<div class="inspector-section" style="margin-bottom: 1.5rem;">';
-            html += '<h4>Scene Generation</h4>';
-
-            html += makeTextInput(null, 'cbg-panel-scene', 'panel_scene', 'Scene Description',
-                'Describe the scene for AI generation', this.selectedPanel.sceneDescription || '', 'big',
-                'Wide shot of medieval castle at sunset, with our hero approaching the gates on horseback...');
-
-            html += '<div class="d-flex" style="gap: 0.75rem; margin-bottom: 0.75rem;">';
-            html += '<div style="flex: 1;">';
-            html += makeDropdownInput(null, 'cbg-panel-style', 'panel_style', 'Art Style',
-                'Visual style for this panel',
-                ['Realistic', 'Cartoon', 'Manga', 'Sketch', 'Painterly', 'Comic Book'],
-                this.selectedPanel.artStyle || 'Realistic');
-            html += '</div>';
-            html += '<div style="flex: 1;">';
-            html += makeDropdownInput(null, 'cbg-panel-camera', 'panel_camera', 'Camera Angle',
-                'Shot composition',
-                ['Wide Shot', 'Medium Shot', 'Close-up', 'Extreme Close-up', 'Birds Eye', 'Low Angle', 'High Angle'],
-                this.selectedPanel.cameraAngle || 'Medium Shot');
-            html += '</div>';
-            html += '</div>';
-
-            // Character selection
-            const characters = this.main.getManager('characters').getAllCharacters();
-            if (characters.length > 0) {
-                const characterNames = ['None'].concat(characters.map(c => c.name || 'Unnamed'));
-                html += makeDropdownInput(null, 'cbg-panel-character', 'panel_character', 'Featured Character',
-                    'Main character in this panel', characterNames, this.selectedPanel.featuredCharacter || 'None');
-            }
-
-            html += '<button class="basic-button btn-primary w-100" style="margin-top: 1rem;" id="cbg-generate-panel">Generate Panel Image</button>';
-
-            html += '</div>';
-
-            // Panel Styling Section
-            html += '<div class="inspector-section" style="margin-bottom: 1.5rem;">';
-            html += '<h4>Panel Styling</h4>';
-
-            html += makeDropdownInput(null, 'cbg-panel-border-style', 'panel_border_style', 'Border Style',
-                'Panel border style',
-                ['solid', 'dashed', 'dotted', 'double', 'none'],
-                this.selectedPanel.borderStyle || 'solid');
-
-            html += makeNumberInput(null, 'cbg-panel-border-width', 'panel_border_width', 'Border Width',
-                'Border width in pixels', this.selectedPanel.borderWidth || 2, 0, 10, 1);
-
-            html += makeTextInput(null, 'cbg-panel-border-color', 'panel_border_color', 'Border Color',
-                'Border color (hex)', this.selectedPanel.borderColor || '#000000', 'normal', '#000000');
-
-            html += makeTextInput(null, 'cbg-panel-bg-color', 'panel_bg_color', 'Background Color',
-                'Background color (hex)', this.selectedPanel.backgroundColor || '#ffffff', 'normal', '#ffffff');
-
-            html += '</div>';
-
-            // Speech/Text Options Section
-            html += '<div class="inspector-section" style="margin-bottom: 1.5rem;">';
-            html += '<h4>Speech & Text</h4>';
-
-            html += makeDropdownInput(null, 'cbg-bubble-style', 'bubble_style', 'Speech Bubble Style',
-                'Style of speech bubble',
-                ['Oval (Normal Speech)', 'Rectangle (Narration)', 'Cloud (Thought)', 'Burst (Yelling/SFX)', 'None'],
-                this.selectedPanel.speechStyle || 'None');
-
-            html += makeTextInput(null, 'cbg-speech-text', 'speech_text', 'Dialogue/Text',
-                'Text content for this panel', this.selectedPanel.speechText || '', 'big',
-                'Enter dialogue or caption text...');
-
-            html += '</div>';
-
-            // Quick Actions Section
-            html += '<div class="inspector-section">';
-            html += '<h4>Actions</h4>';
-            html += '<div class="d-flex flex-column" style="gap: 0.5rem;">';
-            html += '<button class="basic-button small-button" id="cbg-duplicate-panel">Duplicate Panel</button>';
-            html += '<button class="basic-button small-button" id="cbg-copy-panel">Copy Properties</button>';
-            html += '<button class="basic-button small-button" id="cbg-paste-panel">Paste Properties</button>';
-            html += '<button class="basic-button small-button" style="color: var(--danger);" id="cbg-delete-panel">Delete Panel</button>';
-            html += '</div>';
-            html += '</div>';
-
-            container.innerHTML = html;
-
-            // Enable SwarmUI enhancements
-            if (typeof enableSlidersIn === 'function') {
-                enableSlidersIn(container);
-            }
-
-            // Setup inspector event handlers
-            this.setupInspectorHandlers();
-
-        } catch (error) {
-            this.handleError('Failed to generate panel inspector', error);
-            container.innerHTML = '<div class="cbg-error">Failed to load panel inspector</div>';
+        if (panel) {
+            this.log(`Selected panel: ${panel.id}`);
         }
     }
 
     /**
-     * <summary>Setup event handlers for the panel inspector</summary>
-     */
-    setupInspectorHandlers() {
-        const container = document.getElementById('cbg-panel-inspector-content');
-        if (!container) return;
-
-        // Form field change handlers
-        const inputs = container.querySelectorAll('input, textarea, select');
-        inputs.forEach(input => {
-            input.addEventListener('change', () => {
-                this.updatePanelFromInspector();
-            });
-        });
-
-        // Button handlers
-        const generateBtn = container.querySelector('#cbg-generate-panel');
-        const duplicateBtn = container.querySelector('#cbg-duplicate-panel');
-        const copyBtn = container.querySelector('#cbg-copy-panel');
-        const pasteBtn = container.querySelector('#cbg-paste-panel');
-        const deleteBtn = container.querySelector('#cbg-delete-panel');
-
-        if (generateBtn) {
-            generateBtn.addEventListener('click', () => this.generatePanelScene());
-        }
-
-        if (duplicateBtn) {
-            duplicateBtn.addEventListener('click', () => this.duplicatePanel());
-        }
-
-        if (copyBtn) {
-            copyBtn.addEventListener('click', () => this.copyPanelProperties());
-        }
-
-        if (pasteBtn) {
-            pasteBtn.addEventListener('click', () => this.pastePanelProperties());
-        }
-
-        if (deleteBtn) {
-            deleteBtn.addEventListener('click', () => this.deletePanel());
-        }
-    }
-
-    /**
-     * <summary>Update panel properties from inspector form</summary>
-     */
-    updatePanelFromInspector() {
-        if (!this.selectedPanel) return;
-
-        try {
-            this.selectedPanel.type = this.getFormValue('cbg-panel-type');
-            this.selectedPanel.number = parseInt(this.getFormValue('cbg-panel-number')) || 1;
-            this.selectedPanel.sceneDescription = this.getFormValue('cbg-panel-scene');
-            this.selectedPanel.artStyle = this.getFormValue('cbg-panel-style');
-            this.selectedPanel.cameraAngle = this.getFormValue('cbg-panel-camera');
-            this.selectedPanel.featuredCharacter = this.getFormValue('cbg-panel-character');
-            this.selectedPanel.borderStyle = this.getFormValue('cbg-panel-border-style');
-            this.selectedPanel.borderWidth = parseInt(this.getFormValue('cbg-panel-border-width')) || 2;
-            this.selectedPanel.borderColor = this.getFormValue('cbg-panel-border-color');
-            this.selectedPanel.backgroundColor = this.getFormValue('cbg-panel-bg-color');
-            this.selectedPanel.speechStyle = this.getFormValue('cbg-bubble-style');
-            this.selectedPanel.speechText = this.getFormValue('cbg-speech-text');
-
-            this.selectedPanel.lastModified = Date.now();
-
-            // Update visual representation
-            this.renderCanvas();
-
-        } catch (error) {
-            this.handleError('Failed to update panel from inspector', error);
-        }
-    }
-
-    /**
-     * <summary>Add a new panel to the current page</summary>
+     * <summary>Add new panel</summary>
      */
     addPanel() {
-        const currentPageData = this.pages[this.currentPage];
-        if (!currentPageData) return;
+        const currentPage = this.getCurrentPage();
+        if (!currentPage) return;
 
         const newPanel = this.createPanelData();
-        currentPageData.panels.push(newPanel);
 
+        // Position new panel in a free space
+        const position = this.findFreeSpace(currentPage);
+        newPanel.x = position.x;
+        newPanel.y = position.y;
+
+        currentPage.panels.push(newPanel);
         this.selectPanel(newPanel);
-        this.renderCanvas();
+        this.saveState();
 
         this.log('Added new panel:', newPanel.id);
     }
 
     /**
-     * <summary>Create panel data structure</summary>
-     * @returns {Object} Panel data object
+     * <summary>Add panel at specific position</summary>
+     */
+    addPanelAtPosition(event) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = (event.clientX - rect.left) / (this.canvasZoom / 100);
+        const y = (event.clientY - rect.top) / (this.canvasZoom / 100);
+
+        const currentPage = this.getCurrentPage();
+        if (!currentPage) return;
+
+        const newPanel = this.createPanelData();
+
+        // Snap to grid and constrain to bounds
+        newPanel.x = this.snapToGrid ? Math.round(x / this.gridSize) * this.gridSize : x;
+        newPanel.y = this.snapToGrid ? Math.round(y / this.gridSize) * this.gridSize : y;
+
+        // Ensure panel fits in canvas
+        newPanel.x = Math.max(0, Math.min(currentPage.width - newPanel.width, newPanel.x));
+        newPanel.y = Math.max(0, Math.min(currentPage.height - newPanel.height, newPanel.y));
+
+        currentPage.panels.push(newPanel);
+        this.selectPanel(newPanel);
+        this.saveState();
+    }
+
+    /**
+     * <summary>Create new panel data</summary>
      */
     createPanelData() {
-        const panelCount = this.pages[this.currentPage].panels.length;
-        const id = `panel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const template = this.panelTemplates.get('standard_rect');
 
         return {
-            id: id,
-            number: panelCount + 1,
-            type: 'Panel',
-            x: 100 + (panelCount * 20), // Offset new panels slightly
-            y: 100 + (panelCount * 20),
-            width: 250,
-            height: 200,
-            borderStyle: 'solid',
-            borderWidth: 2,
-            borderColor: '#000000',
+            id: `panel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            x: 50,
+            y: 50,
+            width: 200,
+            height: 150,
+            shape: template.shape,
+            borderWidth: template.borderWidth,
+            borderStyle: template.borderStyle,
+            borderColor: template.borderColor,
             backgroundColor: '#ffffff',
+            borderRadius: 0,
+
+            // Content
+            sceneSummary: '',
             sceneDescription: '',
             sceneImage: null,
-            artStyle: 'Realistic',
-            cameraAngle: 'Medium Shot',
-            featuredCharacter: 'None',
-            speechStyle: 'None',
-            speechText: '',
+            shotType: 'Medium Shot',
+            timeOfDay: 'Midday',
+            mood: '',
+            previousContext: '',
+            nextContext: '',
+
+            // Characters
+            characters: [],
+
+            // Dialogue
+            dialogues: [],
+
+            // Effects
+            effects: [],
+
+            // Generation
+            generatedImages: [],
+
+            // Metadata
             createdDate: Date.now(),
             lastModified: Date.now()
         };
     }
 
     /**
-     * <summary>Apply a panel layout template</summary>
-     * @param {string} templateId - Template ID to apply
+     * <summary>Find free space for new panel</summary>
      */
-    applyTemplate(templateId) {
-        const template = this.panelTemplates.find(t => t.id === templateId);
-        if (!template) {
-            this.log(`Template not found: ${templateId}`);
-            return;
-        }
+    findFreeSpace(page) {
+        const defaultPosition = { x: 50, y: 50 };
+        const panelWidth = 200;
+        const panelHeight = 150;
+        const margin = 20;
 
-        if (confirm('This will replace all existing panels on this page. Continue?')) {
-            const currentPageData = this.pages[this.currentPage];
-            currentPageData.panels = [];
+        // Simple algorithm: try positions in a grid pattern
+        for (let y = 50; y < page.height - panelHeight; y += panelHeight + margin) {
+            for (let x = 50; x < page.width - panelWidth; x += panelWidth + margin) {
+                const overlaps = page.panels.some(panel =>
+                    x < panel.x + panel.width + margin &&
+                    x + panelWidth + margin > panel.x &&
+                    y < panel.y + panel.height + margin &&
+                    y + panelHeight + margin > panel.y
+                );
 
-            template.panels.forEach((templatePanel, index) => {
-                const panel = this.createPanelData();
-                panel.number = index + 1;
-                panel.x = templatePanel.x;
-                panel.y = templatePanel.y;
-                panel.width = templatePanel.width;
-                panel.height = templatePanel.height;
-                panel.borderStyle = templatePanel.borderStyle;
-
-                currentPageData.panels.push(panel);
-            });
-
-            currentPageData.layoutTemplate = templateId;
-            currentPageData.lastModified = Date.now();
-
-            this.selectedPanel = null;
-            this.renderCanvas();
-            this.renderPanelInspector();
-
-            this.log(`Applied template: ${templateId}`);
-        }
-    }
-
-    /**
-     * <summary>Generate panel scene with AI</summary>
-     */
-    async generatePanelScene() {
-        if (!this.selectedPanel) return;
-
-        try {
-            this.log('Generating panel scene with AI...');
-
-            const generateBtn = document.getElementById('cbg-generate-panel');
-            if (generateBtn) {
-                generateBtn.innerHTML = '<span class="cbg-spinner"></span>Generating...';
-                generateBtn.disabled = true;
-            }
-
-            // Update panel from inspector first
-            this.updatePanelFromInspector();
-
-            // TODO: Call C# backend method for AI scene generation
-            // const response = await genericRequest('GeneratePanelScene', {
-            //     panelData: this.selectedPanel,
-            //     storyContext: this.main.getManager('story').getStoryData(),
-            //     characterData: this.main.getManager('characters').getCharacter(this.selectedPanel.featuredCharacter)
-            // }, data => {
-            //     this.selectedPanel.sceneImage = data.imageData;
-            //     this.renderCanvas();
-            // });
-
-            // Placeholder demonstration
-            setTimeout(() => {
-                this.log('AI scene generation completed (placeholder)');
-                if (generateBtn) {
-                    generateBtn.innerHTML = 'Generate Panel Image';
-                    generateBtn.disabled = false;
+                if (!overlaps) {
+                    return { x, y };
                 }
-            }, 3000);
-
-        } catch (error) {
-            this.handleError('Failed to generate panel scene', error);
-
-            const generateBtn = document.getElementById('cbg-generate-panel');
-            if (generateBtn) {
-                generateBtn.innerHTML = 'Generate Panel Image';
-                generateBtn.disabled = false;
             }
         }
+
+        return defaultPosition;
     }
 
     /**
-     * <summary>Duplicate the selected panel</summary>
+     * <summary>Duplicate panel</summary>
      */
-    duplicatePanel() {
-        if (!this.selectedPanel) return;
+    duplicatePanel(panelId) {
+        const currentPage = this.getCurrentPage();
+        if (!currentPage) return;
 
-        const currentPageData = this.pages[this.currentPage];
-        const duplicatedPanel = JSON.parse(JSON.stringify(this.selectedPanel));
+        const originalPanel = currentPage.panels.find(p => p.id === panelId);
+        if (!originalPanel) return;
 
-        // Update duplicate with new ID and position
-        duplicatedPanel.id = `panel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        duplicatedPanel.x += 20;
-        duplicatedPanel.y += 20;
-        duplicatedPanel.number = currentPageData.panels.length + 1;
-        duplicatedPanel.createdDate = Date.now();
-        duplicatedPanel.lastModified = Date.now();
+        const duplicatePanel = JSON.parse(JSON.stringify(originalPanel));
+        duplicatePanel.id = `panel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        duplicatePanel.x += 20;
+        duplicatePanel.y += 20;
+        duplicatePanel.createdDate = Date.now();
+        duplicatePanel.lastModified = Date.now();
 
-        currentPageData.panels.push(duplicatedPanel);
-        this.selectPanel(duplicatedPanel);
-        this.renderCanvas();
+        currentPage.panels.push(duplicatePanel);
+        this.selectPanel(duplicatePanel);
+        this.saveState();
 
-        this.log('Duplicated panel:', duplicatedPanel.id);
+        this.log('Duplicated panel:', duplicatePanel.id);
     }
 
     /**
-     * <summary>Delete the selected panel</summary>
+     * <summary>Delete panel</summary>
      */
-    deletePanel() {
-        if (!this.selectedPanel) return;
+    deletePanel(panelId) {
+        const currentPage = this.getCurrentPage();
+        if (!currentPage) return;
+
+        const panelIndex = currentPage.panels.findIndex(p => p.id === panelId);
+        if (panelIndex === -1) return;
 
         if (confirm('Are you sure you want to delete this panel?')) {
-            const currentPageData = this.pages[this.currentPage];
-            const index = currentPageData.panels.findIndex(p => p.id === this.selectedPanel.id);
+            currentPage.panels.splice(panelIndex, 1);
 
-            if (index >= 0) {
-                currentPageData.panels.splice(index, 1);
+            // Clear selection if deleted panel was selected
+            if (this.selectedPanel && this.selectedPanel.id === panelId) {
                 this.selectedPanel = null;
-
-                this.renderCanvas();
-                this.renderPanelInspector();
-
-                this.log('Deleted panel at index:', index);
             }
+
+            this.saveState();
+            this.render();
+
+            this.log('Deleted panel:', panelId);
+        }
+    }
+
+    // Panel inspector event handlers setup continues in next part...
+
+    /**
+     * <summary>Setup panel inspector handlers</summary>
+     */
+    setupPanelInspectorHandlers() {
+        const inspector = document.getElementById('cbg-panel-inspector-content');
+        if (!inspector) return;
+
+        // Tab switching
+        inspector.addEventListener('click', (e) => {
+            if (e.target.classList.contains('nav-link')) {
+                const tabId = e.target.dataset.tab;
+                this.switchInspectorTab(tabId);
+            }
+        });
+
+        // Panel action buttons
+        const duplicateBtn = document.getElementById('cbg-duplicate-panel');
+        const deleteBtn = document.getElementById('cbg-delete-panel');
+
+        if (duplicateBtn) {
+            duplicateBtn.addEventListener('click', () => {
+                if (this.selectedPanel) {
+                    this.duplicatePanel(this.selectedPanel.id);
+                }
+            });
+        }
+
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => {
+                if (this.selectedPanel) {
+                    this.deletePanel(this.selectedPanel.id);
+                }
+            });
+        }
+
+        // Scene tab handlers
+        this.setupSceneTabHandlers();
+
+        // Dialogue tab handlers
+        this.setupDialogueTabHandlers();
+
+        // Style tab handlers
+        this.setupStyleTabHandlers();
+
+        // Effects tab handlers
+        this.setupEffectsTabHandlers();
+    }
+
+    /**
+     * <summary>Setup scene tab handlers</summary>
+     */
+    setupSceneTabHandlers() {
+        // Form field updates
+        const sceneFields = [
+            'cbg-panel-scene-summary',
+            'cbg-panel-shot-type',
+            'cbg-panel-time-of-day',
+            'cbg-panel-mood',
+            'cbg-previous-context',
+            'cbg-next-context'
+        ];
+
+        sceneFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.addEventListener('input', () => {
+                    this.updatePanelFromForm();
+                });
+            }
+        });
+
+        // Character management
+        const addCharacterBtn = document.getElementById('cbg-add-character-to-scene');
+        if (addCharacterBtn) {
+            addCharacterBtn.addEventListener('click', () => this.showCharacterSelector());
+        }
+
+        // Character scene updates
+        document.addEventListener('change', (e) => {
+            if (e.target.classList.contains('character-position') ||
+                e.target.classList.contains('character-expression')) {
+                this.updateCharacterInScene(e.target.dataset.characterId, e.target);
+            }
+        });
+
+        document.addEventListener('input', (e) => {
+            if (e.target.classList.contains('character-action')) {
+                this.debounce(() => {
+                    this.updateCharacterInScene(e.target.dataset.characterId, e.target);
+                }, 500);
+            }
+        });
+
+        // Remove character buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-scene-character')) {
+                const characterId = e.target.dataset.characterId;
+                this.removeCharacterFromScene(characterId);
+            }
+        });
+
+        // AI generation buttons
+        const generateSceneBtn = document.getElementById('cbg-generate-scene');
+        const generateBackgroundBtn = document.getElementById('cbg-generate-background');
+        const generateVariationsBtn = document.getElementById('cbg-generate-variations');
+        const refineSceneBtn = document.getElementById('cbg-refine-scene');
+
+        if (generateSceneBtn) {
+            generateSceneBtn.addEventListener('click', () => this.generateScene());
+        }
+
+        if (generateBackgroundBtn) {
+            generateBackgroundBtn.addEventListener('click', () => this.generateBackground());
+        }
+
+        if (generateVariationsBtn) {
+            generateVariationsBtn.addEventListener('click', () => this.generateVariations());
+        }
+
+        if (refineSceneBtn) {
+            refineSceneBtn.addEventListener('click', () => this.refineScene());
+        }
+
+        // Image upload
+        const sceneImageUpload = document.getElementById('cbg-scene-image-upload');
+        if (sceneImageUpload) {
+            sceneImageUpload.addEventListener('change', (e) => {
+                this.handleSceneImageUpload(e);
+            });
+        }
+
+        // Remove scene image
+        const removeSceneImageBtn = document.getElementById('cbg-remove-scene-image');
+        if (removeSceneImageBtn) {
+            removeSceneImageBtn.addEventListener('click', () => {
+                this.selectedPanel.sceneImage = null;
+                this.updatePanel();
+            });
         }
     }
 
     /**
-     * <summary>Copy panel properties to clipboard</summary>
+     * <summary>Setup dialogue tab handlers</summary>
      */
-    copyPanelProperties() {
-        if (!this.selectedPanel) return;
+    setupDialogueTabHandlers() {
+        // Add dialogue button
+        const addDialogueBtn = document.getElementById('cbg-add-dialogue');
+        if (addDialogueBtn) {
+            addDialogueBtn.addEventListener('click', () => this.addDialogue());
+        }
 
-        const properties = {
-            borderStyle: this.selectedPanel.borderStyle,
-            borderWidth: this.selectedPanel.borderWidth,
-            borderColor: this.selectedPanel.borderColor,
-            backgroundColor: this.selectedPanel.backgroundColor,
-            artStyle: this.selectedPanel.artStyle,
-            cameraAngle: this.selectedPanel.cameraAngle,
-            speechStyle: this.selectedPanel.speechStyle
-        };
+        // Remove dialogue buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-dialogue')) {
+                const index = parseInt(e.target.dataset.dialogueIndex);
+                this.removeDialogue(index);
+            }
+        });
 
-        this.copiedPanelProperties = properties;
-        this.log('Copied panel properties');
-    }
+        // Dialogue field updates
+        document.addEventListener('input', (e) => {
+            if (e.target.id && e.target.id.startsWith('cbg-dialogue-')) {
+                this.debounce(() => this.updateDialogueFromForm(), 300);
+            }
+        });
 
-    /**
-     * <summary>Paste panel properties from clipboard</summary>
-     */
-    pastePanelProperties() {
-        if (!this.selectedPanel || !this.copiedPanelProperties) return;
+        // AI dialogue tools
+        const suggestDialogueBtn = document.getElementById('cbg-suggest-dialogue');
+        const improveDialogueBtn = document.getElementById('cbg-improve-dialogue');
+        const checkVoiceBtn = document.getElementById('cbg-check-voice-consistency');
 
-        Object.assign(this.selectedPanel, this.copiedPanelProperties);
-        this.selectedPanel.lastModified = Date.now();
+        if (suggestDialogueBtn) {
+            suggestDialogueBtn.addEventListener('click', () => this.suggestDialogue());
+        }
 
-        this.renderCanvas();
-        this.renderPanelInspector();
+        if (improveDialogueBtn) {
+            improveDialogueBtn.addEventListener('click', () => this.improveDialogue());
+        }
 
-        this.log('Pasted panel properties');
-    }
-
-    /**
-     * <summary>Switch to a different page</summary>
-     * @param {number} pageIndex - Page index to switch to
-     */
-    switchToPage(pageIndex) {
-        if (pageIndex < 0 || pageIndex >= this.pages.length) return;
-
-        this.currentPage = pageIndex;
-        this.selectedPanel = null;
-
-        this.renderCanvas();
-        this.renderPanelInspector();
-
-        this.log(`Switched to page ${pageIndex + 1}`);
-    }
-
-    /**
-     * <summary>Save current page</summary>
-     */
-    async savePage() {
-        try {
-            this.log('Saving current page...');
-
-            const currentPageData = this.pages[this.currentPage];
-            currentPageData.lastModified = Date.now();
-
-            // TODO: Save page to C# backend
-            this.log('Page saved successfully');
-
-        } catch (error) {
-            this.handleError('Failed to save page', error);
+        if (checkVoiceBtn) {
+            checkVoiceBtn.addEventListener('click', () => this.checkVoiceConsistency());
         }
     }
 
+    /**
+     * <summary>Setup style tab handlers</summary>
+     */
+    setupStyleTabHandlers() {
+        // Style property updates
+        const styleFields = [
+            'cbg-panel-border-width',
+            'cbg-panel-border-color',
+            'cbg-panel-border-style',
+            'cbg-panel-bg-color',
+            'cbg-panel-border-radius'
+        ];
+
+        styleFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.addEventListener('input', () => {
+                    this.updatePanelStyleFromForm();
+                });
+            }
+        });
+
+        // Shape selection
+        document.addEventListener('change', (e) => {
+            if (e.target.name === 'panelShape') {
+                this.selectedPanel.shape = e.target.value;
+                this.updatePanel();
+                this.renderPanelInspector(); // Re-render to show/hide border radius
+            }
+        });
+
+        // Effect checkboxes
+        const effectCheckboxes = [
+            'cbg-panel-shadow',
+            'cbg-panel-glow',
+            'cbg-panel-vintage'
+        ];
+
+        effectCheckboxes.forEach(checkboxId => {
+            const checkbox = document.getElementById(checkboxId);
+            if (checkbox) {
+                checkbox.addEventListener('change', () => {
+                    this.updatePanelEffectsFromForm();
+                });
+            }
+        });
+
+        // Style presets
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('apply-style-preset')) {
+                const preset = e.target.dataset.preset;
+                this.applyStylePreset(preset);
+            }
+        });
+    }
+
+    /**
+     * <summary>Setup effects tab handlers</summary>
+     */
+    setupEffectsTabHandlers() {
+        // Add effect buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('add-effect')) {
+                const effectType = e.target.dataset.effectType;
+                this.addEffect(effectType);
+            }
+        });
+
+        // Remove effect buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-effect')) {
+                const index = parseInt(e.target.dataset.effectIndex);
+                this.removeEffect(index);
+            }
+        });
+
+        // Effect property updates
+        document.addEventListener('input', (e) => {
+            if (e.target.dataset.effectIndex !== undefined) {
+                this.updateEffectProperty(
+                    parseInt(e.target.dataset.effectIndex),
+                    e.target.dataset.property,
+                    e.target.value
+                );
+            }
+        });
+    }
     /**
      * <summary>Save all layout data</summary>
      */
@@ -959,21 +1606,15 @@ export class LayoutManager {
         try {
             this.log('Saving all layout data...');
 
-            // Update current panel if selected
-            if (this.selectedPanel) {
-                this.updatePanelFromInspector();
-            }
-
             const layoutData = {
                 pages: this.pages,
-                currentPage: this.currentPage,
-                panelTemplates: this.panelTemplates
+                currentPage: this.currentPage
             };
 
             // Update project data
             this.main.updateProjectData({ layout: layoutData });
 
-            this.log(`Saved ${this.pages.length} pages with layout data`);
+            this.log(`Saved ${this.pages.length} pages`);
 
         } catch (error) {
             this.handleError('Failed to save layout data', error);
@@ -988,59 +1629,23 @@ export class LayoutManager {
         try {
             this.log('Loading layout data...');
 
-            if (layoutData.pages) {
+            if (layoutData.pages && layoutData.pages.length > 0) {
                 this.pages = layoutData.pages;
+                this.currentPage = layoutData.currentPage || 0;
             } else {
-                this.initializePages();
-            }
-
-            if (layoutData.currentPage !== undefined) {
-                this.currentPage = layoutData.currentPage;
-            }
-
-            if (layoutData.panelTemplates) {
-                this.panelTemplates = layoutData.panelTemplates;
+                // Create default page if no data
+                this.createDefaultPage();
             }
 
             // Clear selection
             this.selectedPanel = null;
 
-            this.log('Layout data loaded successfully');
+            this.log(`Loaded ${this.pages.length} pages`);
 
         } catch (error) {
             this.handleError('Failed to load layout data', error);
+            this.createDefaultPage(); // Fallback
         }
-    }
-
-    /**
-     * <summary>Select a panel</summary>
-     * @param {Object} panel - Panel to select
-     */
-    selectPanel(panel) {
-        this.selectedPanel = panel;
-        this.renderCanvas(); // Re-render to show selection
-        this.renderPanelInspector();
-
-        if (panel) {
-            this.log('Selected panel:', panel.id);
-        } else {
-            this.log('Deselected panel');
-        }
-    }
-
-    /**
-     * <summary>Get panel by ID</summary>
-     * @param {string} panelId - Panel ID
-     * @returns {Object} Panel data
-     */
-    getPanelById(panelId) {
-        for (const page of this.pages) {
-            const panel = page.panels.find(p => p.id === panelId);
-            if (panel) {
-                return panel;
-            }
-        }
-        return null;
     }
 
     /**
@@ -1052,32 +1657,25 @@ export class LayoutManager {
     }
 
     /**
-     * <summary>Get current page data</summary>
-     * @returns {Object} Current page data
+     * <summary>Apply template to current page</summary>
+     * @param {string} templateId - Template ID to apply
      */
-    getCurrentPageData() {
-        return this.pages[this.currentPage];
+    applyTemplate(templateId) {
+        this.applyLayoutTemplate(templateId);
     }
 
     /**
-     * <summary>Get form field value safely</summary>
-     * @param {string} elementId - Element ID
-     * @returns {string} Field value
+     * <summary>Debounce helper function</summary>
      */
-    getFormValue(elementId) {
-        const element = document.getElementById(elementId);
-        if (!element) return '';
-
-        if (typeof getInputVal === 'function') {
-            return getInputVal(element) || '';
+    debounce(func, delay) {
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer);
         }
-        return element.value || '';
+        this.debounceTimer = setTimeout(func, delay);
     }
 
     /**
      * <summary>Debug logging helper</summary>
-     * @param {string} message - Log message
-     * @param {*} data - Optional data to log
      */
     log(message, data = null) {
         if (this.debug) {
@@ -1088,8 +1686,6 @@ export class LayoutManager {
 
     /**
      * <summary>Error handling helper</summary>
-     * @param {string} message - Error message
-     * @param {Error} error - Error object
      */
     handleError(message, error) {
         console.error(`[CBG:Layout ERROR] ${message}:`, error);
@@ -1105,10 +1701,23 @@ export class LayoutManager {
     destroy() {
         this.log('Destroying Layout Manager...');
 
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer);
+        }
+
+        if (this.generationInterval) {
+            clearInterval(this.generationInterval);
+        }
+
+        // Remove any modal elements
+        document.getElementById('characterSelectorModal')?.remove();
+
+        this.panelTemplates.clear();
+        this.layoutTemplates.clear();
         this.pages = [];
         this.selectedPanel = null;
-        this.isDragging = false;
-        this.isResizing = false;
+        this.undoStack = [];
+        this.redoStack = [];
         this.isInitialized = false;
 
         this.log('Layout Manager destroyed');

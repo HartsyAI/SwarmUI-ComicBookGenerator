@@ -1,14 +1,398 @@
 /**
- * <summary>Comic Book Generator - Main Controller Module</summary>
- * Handles mode switching, initialization, and coordination between modules
+ * Comic Book Generator - Main Controller with Shared Utilities
+ * Central hub for all reusable components and base functionality
  */
 
-import { CharacterManager } from './comicbook-characters.js';
-import { StoryManager } from './comicbook-story.js';
-import { LayoutManager } from './comicbook-layout.js';
-import { AssetManager } from './comicbook-assets.js';
-import { PreviewManager } from './comicbook-preview.js';
-import { DataManager } from './comicbook-data.js';
+// ============================================================================
+// BASE MANAGER CLASS - All modules extend this
+// ============================================================================
+
+class BaseManager {
+    constructor(main, name) {
+        this.main = main;
+        this.name = name;
+        this.debug = true;
+        this.isInitialized = false;
+        this.debounceTimers = {};
+    }
+
+    /**
+     * Initialize the manager - override in subclasses
+     */
+    async initialize() {
+        this.log(`Initializing ${this.name}...`);
+        this.isInitialized = true;
+    }
+
+    /**
+     * Render the manager interface - override in subclasses
+     */
+    async render() {
+        this.log(`Rendering ${this.name} interface...`);
+    }
+
+    /**
+     * Save manager data - override in subclasses
+     */
+    async saveData() {
+        this.log(`Saving ${this.name} data...`);
+    }
+
+    /**
+     * Load manager data - override in subclasses
+     */
+    loadData(data) {
+        this.log(`Loading ${this.name} data...`);
+    }
+
+    /**
+     * Unified logging
+     */
+    log(message, data = null) {
+        if (this.debug) {
+            const timestamp = new Date().toISOString().substr(11, 12);
+            console.log(`[CBG:${this.name} ${timestamp}] ${message}`, data || '');
+        }
+    }
+
+    /**
+     * Unified error handling
+     */
+    handleError(message, error) {
+        console.error(`[CBG:${this.name} ERROR] ${message}:`, error);
+        if (typeof showError === 'function') {
+            showError(`${message}: ${error.message}`);
+        }
+    }
+
+    /**
+     * Unified debounce
+     */
+    debounce(key, func, delay) {
+        if (this.debounceTimers[key]) {
+            clearTimeout(this.debounceTimers[key]);
+        }
+        this.debounceTimers[key] = setTimeout(() => {
+            func();
+            delete this.debounceTimers[key];
+        }, delay);
+    }
+
+    /**
+     * Run an async action while managing a button's disabled state and label.
+     * @param {string|HTMLElement} buttonOrId - Element id or the element itself
+     * @param {string} busyHtml - InnerHTML to show while running
+     * @param {Function} action - Async function to execute
+     */
+    async runWithButton(buttonOrId, busyHtml, action) {
+        const btn = typeof buttonOrId === 'string' ? document.getElementById(buttonOrId) : buttonOrId;
+        const hadBtn = !!btn;
+        const originalHtml = hadBtn ? btn.innerHTML : '';
+        try {
+            if (hadBtn) {
+                btn.innerHTML = busyHtml;
+                btn.disabled = true;
+            }
+            await action();
+        } catch (err) {
+            this.handleError('Action failed', err);
+        } finally {
+            if (hadBtn) {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }
+    }
+
+    /**
+     * Get form value using SwarmUI's method
+     */
+    getFormValue(elementId) {
+        const element = document.getElementById(elementId);
+        if (!element) return '';
+        return typeof getInputVal === 'function' ? (getInputVal(element) || '') : (element.value || '');
+    }
+
+    /**
+     * Cleanup resources
+     */
+    destroy() {
+        Object.keys(this.debounceTimers).forEach(key => {
+            clearTimeout(this.debounceTimers[key]);
+        });
+        this.debounceTimers = {};
+        this.isInitialized = false;
+        this.log(`${this.name} destroyed`);
+    }
+}
+
+// ============================================================================
+// UI BUILDER - Centralized UI generation using SwarmUI components
+// ============================================================================
+
+class UIBuilder {
+    /**
+     * Create a card component
+     */
+    static createCard(config) {
+        const card = createDiv(config.id, `cbg-card ${config.className || ''}`);
+
+        if (config.thumbnail) {
+            const thumb = createDiv(null, 'card-thumbnail');
+            thumb.innerHTML = config.thumbnail;
+            card.appendChild(thumb);
+        }
+
+        if (config.title) {
+            const title = createDiv(null, 'card-title');
+            title.textContent = config.title;
+            card.appendChild(title);
+        }
+
+        if (config.description) {
+            const desc = createDiv(null, 'card-description');
+            desc.textContent = config.description;
+            card.appendChild(desc);
+        }
+
+        if (config.actions) {
+            const actions = createDiv(null, 'card-actions');
+            config.actions.forEach(action => {
+                const btn = document.createElement('button');
+                btn.className = 'basic-button small-button';
+                btn.textContent = action.label;
+                btn.onclick = action.onclick;
+                actions.appendChild(btn);
+            });
+            card.appendChild(actions);
+        }
+
+        return card;
+    }
+
+    /**
+     * Create a grid container
+     */
+    static createGrid(items, renderer, container) {
+        const grid = container || createDiv(null, 'cbg-grid');
+        grid.innerHTML = '';
+
+        items.forEach(item => {
+            const element = renderer(item);
+            grid.appendChild(element);
+        });
+
+        return grid;
+    }
+
+    /**
+     * Create section with header
+     */
+    static createSection(config) {
+        const section = createDiv(config.id, 'cbg-section');
+
+        const header = createDiv(null, 'section-header');
+        header.innerHTML = `
+            <h4>${escapeHtml(config.title)}</h4>
+            ${config.actions ? `
+                <div class="section-actions">
+                    ${config.actions.map(a =>
+            `<button class="basic-button small-button" onclick="${a.onclick}">${a.label}</button>`
+        ).join('')}
+                </div>
+            ` : ''}
+        `;
+
+        const content = createDiv(null, 'section-content');
+        section.appendChild(header);
+        section.appendChild(content);
+
+        return { section, content };
+    }
+
+    /**
+     * Update element content efficiently
+     */
+    static updateContent(elementId, content) {
+        const element = getRequiredElementById(elementId);
+        if (typeof content === 'string') {
+            element.innerHTML = content;
+        } else {
+            element.innerHTML = '';
+            element.appendChild(content);
+        }
+    }
+
+    /**
+     * Create form using SwarmUI components
+     */
+    static createForm(fields) {
+        let html = '';
+
+        fields.forEach(field => {
+            switch (field.type) {
+                case 'text':
+                    html += makeTextInput(null, field.id, field.paramId, field.label,
+                        field.description, field.value || '', field.format || 'normal', field.placeholder || '');
+                    break;
+                case 'number':
+                    html += makeNumberInput(null, field.id, field.paramId, field.label,
+                        field.description, field.value || 0, field.min || 0, field.max || 100, field.step || 1);
+                    break;
+                case 'dropdown':
+                    html += makeDropdownInput(null, field.id, field.paramId, field.label,
+                        field.description, field.options, field.value || field.options[0]);
+                    break;
+                case 'checkbox':
+                    html += makeCheckboxInput(null, field.id, field.paramId, field.label,
+                        field.description, field.value || false);
+                    break;
+                case 'image':
+                    html += makeImageInput(null, field.id, field.paramId, field.label,
+                        field.description);
+                    break;
+            }
+        });
+
+        return html;
+    }
+}
+
+// ============================================================================
+// EVENT MANAGER - Centralized event handling
+// ============================================================================
+
+class EventManager {
+    constructor() {
+        this.handlers = new Map();
+        this.delegatedHandlers = new Map();
+    }
+
+    /**
+     * Register event handler
+     */
+    on(elementId, event, handler) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            const key = `${elementId}_${event}`;
+            this.off(elementId, event); // Remove existing
+
+            element.addEventListener(event, handler);
+            this.handlers.set(key, { element, event, handler });
+        }
+    }
+
+    /**
+     * Remove event handler
+     */
+    off(elementId, event) {
+        const key = `${elementId}_${event}`;
+        const existing = this.handlers.get(key);
+        if (existing) {
+            existing.element.removeEventListener(existing.event, existing.handler);
+            this.handlers.delete(key);
+        }
+    }
+
+    /**
+     * Setup delegated event handler
+     */
+    delegate(container, selector, event, handler) {
+        const containerEl = typeof container === 'string' ?
+            document.getElementById(container) : container;
+
+        if (!containerEl) return;
+
+        const delegatedHandler = (e) => {
+            const target = e.target.closest(selector);
+            if (target) {
+                handler(e, target);
+            }
+        };
+
+        containerEl.addEventListener(event, delegatedHandler);
+
+        const key = `${container}_${selector}_${event}`;
+        this.delegatedHandlers.set(key, {
+            container: containerEl,
+            event,
+            handler: delegatedHandler
+        });
+    }
+
+    /**
+     * Clear all handlers
+     */
+    clear() {
+        this.handlers.forEach((data, key) => {
+            data.element.removeEventListener(data.event, data.handler);
+        });
+        this.handlers.clear();
+
+        this.delegatedHandlers.forEach((data, key) => {
+            data.container.removeEventListener(data.event, data.handler);
+        });
+        this.delegatedHandlers.clear();
+    }
+}
+
+// ============================================================================
+// DATA HELPER - Simplified data persistence
+// ============================================================================
+
+class DataHelper {
+    /**
+     * Save to backend
+     */
+    static async save(endpoint, data) {
+        try {
+            if (typeof genericRequest === 'function') {
+                return await genericRequest(endpoint, data, (response) => response);
+            }
+            console.log(`TODO: Save to ${endpoint}`, data);
+            return { success: true };
+        } catch (e) {
+            console.error('[DataHelper.save] Failed:', e);
+            throw e;
+        }
+    }
+
+    /**
+     * Load from backend
+     */
+    static async load(endpoint, params = {}) {
+        try {
+            if (typeof genericRequest === 'function') {
+                return await genericRequest(endpoint, params, (response) => response?.data ?? response);
+            }
+            console.log(`TODO: Load from ${endpoint}`, params);
+            return null;
+        } catch (e) {
+            console.error('[DataHelper.load] Failed:', e);
+            throw e;
+        }
+    }
+
+    /**
+     * Generate with AI
+     */
+    static async generateWithAI(type, params) {
+        try {
+            if (typeof genericRequest === 'function') {
+                return await genericRequest(`Generate${type}`, params, (response) => response?.result ?? response);
+            }
+            console.log(`TODO: Generate ${type} with AI`, params);
+            return { generated: true, placeholder: true };
+        } catch (e) {
+            console.error('[DataHelper.generateWithAI] Failed:', e);
+            throw e;
+        }
+    }
+}
+
+// ============================================================================
+// MAIN COMIC BOOK GENERATOR CLASS
+// ============================================================================
 
 class ComicBookGenerator {
     constructor() {
@@ -16,504 +400,225 @@ class ComicBookGenerator {
         this.currentMode = 'characters_mode';
         this.projectData = null;
         this.isInitialized = false;
-        this.autoSaveInterval = null;
         this.managers = {};
-
-        this.log('ComicBookGenerator constructor called');
+        this.eventManager = new EventManager();
+        this.ui = UIBuilder;
+        this.data = DataHelper;
     }
 
     /**
-     * <summary>Initialize the comic book generator</summary>
+     * Retrieve a manager by name (case-insensitive)
+     * @param {string} name - Manager key, e.g., 'layout', 'characters', 'story', 'publication', 'data'
+     * @returns {*} manager instance or null
      */
+    getManager(name) {
+        if (!name) return null;
+        const key = String(name).toLowerCase();
+        return this.managers[key] || null;
+    }
+
     async initialize() {
         try {
-            this.log('Initializing Comic Book Generator...');
+            console.log('[CBG] Initializing Comic Book Generator...');
 
-            const root = document.getElementById('comicbook-generator');
-            if (!root) {
-                throw new Error('Comic book generator root element not found');
-            }
+            const root = getRequiredElementById('comicbook-generator');
 
             // Initialize managers
-            this.dataManager = new DataManager(this);
-            this.characterManager = new CharacterManager(this);
-            this.storyManager = new StoryManager(this);
-            this.layoutManager = new LayoutManager(this);
-            this.assetManager = new AssetManager(this);
-            this.previewManager = new PreviewManager(this);
-
             this.managers = {
-                data: this.dataManager,
-                characters: this.characterManager,
-                story: this.storyManager,
-                layout: this.layoutManager,
-                assets: this.assetManager,
-                preview: this.previewManager
+                data: new DataManager(this),
+                characters: new CharacterManager(this),
+                story: new StoryManager(this),
+                layout: new LayoutManager(this),
+                publication: new PublicationManager(this)
             };
 
             // Setup mode switching
             this.setupModeHandling();
-
-            // Setup resize handles
-            this.setupResizeHandles();
-
-            // Setup global event handlers
             this.setupGlobalHandlers();
 
-            // Initialize each manager
-            await Promise.all([
-                this.characterManager.initialize(),
-                this.storyManager.initialize(),
-                this.layoutManager.initialize(),
-                this.assetManager.initialize(),
-                this.previewManager.initialize()
-            ]);
+            // Initialize all managers
+            await Promise.all(Object.values(this.managers).map(m => m.initialize()));
 
-            // Load or create new project
+            // Load or create project
             await this.loadOrCreateProject();
 
-            // Setup auto-save
-            this.setupAutoSave();
-
-            // Initialize with characters mode active
+            // Set initial mode
             await this.setActiveMode('characters_mode');
 
             this.isInitialized = true;
-            this.log('Comic Book Generator initialized successfully');
+            console.log('[CBG] Comic Book Generator initialized successfully');
 
         } catch (error) {
-            this.handleError('Failed to initialize Comic Book Generator', error);
+            this.handleError('Failed to initialize', error);
         }
     }
 
-    /**
-     * <summary>Setup mode switching functionality</summary>
-     */
     setupModeHandling() {
-        this.log('Setting up mode handling...');
-
-        const modeRadios = document.querySelectorAll('input[name="cbg_mode"]');
-        const modeContents = {
-            'characters_mode': document.getElementById('characters_content'),
-            'story_mode': document.getElementById('story_content'),
-            'layout_mode': document.getElementById('layout_content'),
-            'assets_mode': document.getElementById('assets_content'),
-            'preview_mode': document.getElementById('preview_content')
-        };
-
-        this.log(`Found ${modeRadios.length} mode radio buttons`);
-
-        // Validate all mode content containers exist
-        Object.entries(modeContents).forEach(([key, element]) => {
-            if (!element) {
-                throw new Error(`Mode content container not found: ${key}`);
+        // Use event delegation for mode switching
+        this.eventManager.delegate(document.body, 'input[name="cbg_mode"]', 'change', async (e, target) => {
+            if (target.checked) {
+                await this.setActiveMode(target.id);
             }
         });
-
-        modeRadios.forEach(radio => {
-            radio.addEventListener('change', async (event) => {
-                if (event.target.checked) {
-                    this.log(`Mode changed to: ${event.target.id}`);
-                    await this.setActiveMode(event.target.id);
-                }
-            });
-        });
-
-        this.modeContents = modeContents;
     }
 
-    /**
-     * <summary>Set the active mode and update UI</summary>
-     * @param {string} mode - The mode ID to activate
-     */
-    async setActiveMode(mode) {
-        try {
-            this.log(`Setting active mode: ${mode}`);
-
-            if (this.currentMode === mode) {
-                this.log(`Mode ${mode} is already active, skipping`);
-                return;
-            }
-
-            // Save current mode data before switching
-            if (this.isInitialized && this.currentMode) {
-                await this.saveCurrentModeData();
-            }
-
-            // Hide all content sections
-            Object.values(this.modeContents).forEach(content => {
-                content.classList.remove('active');
-            });
-
-            // Show the active section
-            const activeContent = this.modeContents[mode];
-            if (activeContent) {
-                activeContent.classList.add('active');
-                this.currentMode = mode;
-
-                // Initialize the active mode if not already done
-                await this.initializeMode(mode);
-
-                this.log(`Successfully activated mode: ${mode}`);
-            } else {
-                throw new Error(`No content found for mode: ${mode}`);
-            }
-
-        } catch (error) {
-            this.handleError(`Failed to set active mode: ${mode}`, error);
-        }
-    }
-
-    /**
-     * <summary>Initialize a specific mode</summary>
-     * @param {string} mode - Mode to initialize
-     */
-    async initializeMode(mode) {
-        try {
-            this.log(`Initializing mode: ${mode}`);
-
-            switch (mode) {
-                case 'characters_mode':
-                    await this.characterManager.render();
-                    break;
-                case 'story_mode':
-                    await this.storyManager.render();
-                    break;
-                case 'layout_mode':
-                    await this.layoutManager.render();
-                    break;
-                case 'assets_mode':
-                    await this.assetManager.render();
-                    break;
-                case 'preview_mode':
-                    await this.previewManager.render();
-                    break;
-                default:
-                    this.log(`Unknown mode: ${mode}`);
-            }
-
-        } catch (error) {
-            this.handleError(`Failed to initialize mode: ${mode}`, error);
-        }
-    }
-
-    /**
-     * <summary>Setup resize handle functionality</summary>
-     */
-    setupResizeHandles() {
-        this.log('Setting up resize handles...');
-
-        const resizeHandles = document.querySelectorAll('.resize-handle');
-
-        resizeHandles.forEach(handle => {
-            let isResizing = false;
-            let startX = 0;
-            let startWidth = 0;
-            let leftPanel = null;
-
-            handle.addEventListener('mousedown', (e) => {
-                this.log(`Resize started on handle: ${handle.id}`);
-                isResizing = true;
-                startX = e.clientX;
-                leftPanel = handle.previousElementSibling;
-
-                if (leftPanel) {
-                    const computedStyle = window.getComputedStyle(leftPanel);
-                    startWidth = parseInt(computedStyle.width, 10);
-                }
-
-                document.addEventListener('mousemove', handleMouseMove);
-                document.addEventListener('mouseup', handleMouseUp);
-
-                document.body.style.userSelect = 'none';
-                e.preventDefault();
-            });
-
-            const handleMouseMove = (e) => {
-                if (!isResizing || !leftPanel) return;
-
-                const deltaX = e.clientX - startX;
-                const newWidth = Math.max(200, Math.min(800, startWidth + deltaX));
-
-                leftPanel.style.minWidth = `${newWidth}px`;
-            };
-
-            const handleMouseUp = () => {
-                if (isResizing) {
-                    this.log('Resize completed');
-                    isResizing = false;
-                }
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-                document.body.style.userSelect = '';
-            };
-        });
-    }
-
-    /**
-     * <summary>Setup global event handlers</summary>
-     */
     setupGlobalHandlers() {
-        this.log('Setting up global event handlers...');
+        // Save button
+        this.eventManager.on('cbg-save-project', 'click', () => this.saveProject());
 
-        // Save project button
-        const saveButton = document.getElementById('cbg-save-project');
-        if (saveButton) {
-            saveButton.addEventListener('click', () => this.saveProject());
-        }
-
-        // Handle page visibility changes for auto-save
+        // Auto-save on visibility change
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                this.log('Page hidden, saving project...');
-                this.saveProject();
-            }
-        });
-
-        // Handle beforeunload for unsaved changes
-        window.addEventListener('beforeunload', (e) => {
-            if (this.hasUnsavedChanges()) {
-                e.preventDefault();
-                e.returnValue = '';
-                return '';
-            }
+            if (document.hidden) this.saveProject(true);
         });
     }
 
-    /**
-     * <summary>Setup auto-save functionality</summary>
-     */
-    setupAutoSave() {
-        this.log('Setting up auto-save...');
+    async setActiveMode(mode) {
+        if (this.currentMode === mode) return;
 
-        // Auto-save every 30 seconds
-        this.autoSaveInterval = setInterval(() => {
-            if (this.hasUnsavedChanges()) {
-                this.log('Auto-saving project...');
-                this.saveProject(true);
+        // Save current mode data
+        if (this.currentMode && this.managers[this.currentMode.replace('_mode', '')]) {
+            await this.managers[this.currentMode.replace('_mode', '')].saveData();
+        }
+
+        // Hide all modes
+        document.querySelectorAll('.mode-content').forEach(el => {
+            el.classList.remove('active');
+            el.style.display = 'none';
+        });
+
+        // Show new mode
+        const content = document.getElementById(mode.replace('_mode', '_content'));
+        if (content) {
+            content.classList.add('active');
+            content.style.display = 'flex';
+            this.currentMode = mode;
+
+            // Render new mode
+            const managerName = mode.replace('_mode', '');
+            if (this.managers[managerName]) {
+                await this.managers[managerName].render();
             }
-        }, 30000);
+        }
     }
 
-    /**
-     * <summary>Load existing project or create new one</summary>
-     */
     async loadOrCreateProject() {
-        try {
-            this.log('Loading or creating project...');
+        // TODO (C# backend): Implement 'GetLastProject' endpoint and wire DataHelper.load to genericRequest.
+        // Example direct usage if bypassing DataHelper:
+        // const existingProject = await genericRequest('GetLastProject', {});
+        const existingProject = await DataHelper.load('GetLastProject');
 
-            // TODO: Check for existing project in C# backend
-            // const existingProject = await this.dataManager.loadLastProject();
-
-            const existingProject = null; // Placeholder
-
-            if (existingProject) {
-                this.projectData = existingProject;
-                this.log('Loaded existing project');
-            } else {
-                this.projectData = this.dataManager.createNewProject();
-                this.log('Created new project');
-            }
-
-            this.updateUI();
-
-        } catch (error) {
-            this.handleError('Failed to load or create project', error);
-            // Create fallback project
-            this.projectData = this.dataManager.createNewProject();
+        if (existingProject) {
+            this.projectData = existingProject;
+        } else {
+            this.projectData = this.createNewProject();
         }
+
+        // Load data into managers
+        Object.values(this.managers).forEach(manager => {
+            if (manager.loadData) {
+                const key = manager.name.toLowerCase();
+                manager.loadData(this.projectData[key]);
+            }
+        });
     }
 
-    /**
-     * <summary>Save current mode data</summary>
-     */
-    async saveCurrentModeData() {
-        try {
-            this.log(`Saving data for current mode: ${this.currentMode}`);
-
-            switch (this.currentMode) {
-                case 'characters_mode':
-                    await this.characterManager.saveData();
-                    break;
-                case 'story_mode':
-                    await this.storyManager.saveData();
-                    break;
-                case 'layout_mode':
-                    await this.layoutManager.saveData();
-                    break;
-                case 'assets_mode':
-                    await this.assetManager.saveData();
-                    break;
-                case 'preview_mode':
-                    await this.previewManager.saveData();
-                    break;
-            }
-
-        } catch (error) {
-            this.handleError(`Failed to save data for mode: ${this.currentMode}`, error);
-        }
+    createNewProject() {
+        return {
+            projectInfo: {
+                title: 'New Comic Project',
+                author: '',
+                description: '',
+                version: '1.0',
+                created: Date.now(),
+                lastModified: Date.now(),
+                id: `project_${Date.now()}`
+            },
+            data: {},
+            characters: [],
+            story: {},
+            layout: {},
+            assets: {},
+            publication: {}
+        };
     }
 
-    /**
-     * <summary>Save the entire project</summary>
-     * @param {boolean} isAutoSave - Whether this is an auto-save
-     */
     async saveProject(isAutoSave = false) {
         try {
-            const statusElement = document.getElementById('cbg-save-status');
-
-            if (!isAutoSave && statusElement) {
-                statusElement.innerHTML = '<span class="cbg-spinner"></span>Saving...';
+            const statusEl = getRequiredElementById('cbg-save-status');
+            if (!isAutoSave && statusEl) {
+                statusEl.innerHTML = '<span class="cbg-spinner"></span>Saving...';
             }
 
-            this.log(`${isAutoSave ? 'Auto-saving' : 'Saving'} project...`);
+            // Gather data from all managers
+            for (const [key, manager] of Object.entries(this.managers)) {
+                if (manager.saveData) {
+                    await manager.saveData();
+                }
+            }
 
-            // Save current mode data first
-            await this.saveCurrentModeData();
+            // TODO (C# backend): Implement 'SaveComicProject' endpoint and wire DataHelper.save to genericRequest.
+            // Example direct usage if bypassing DataHelper:
+            // await genericRequest('SaveComicProject', { projectData: this.projectData, isAutoSave });
+            await DataHelper.save('SaveComicProject', {
+                projectData: this.projectData,
+                isAutoSave
+            });
 
-            // Update project metadata
-            this.projectData.lastModified = Date.now();
-
-            // TODO: Save to C# backend
-            // await this.dataManager.saveProject(this.projectData);
-
-            this.log('Project saved successfully');
-
-            if (statusElement) {
-                statusElement.textContent = isAutoSave ? 'Auto-saved' : 'Saved';
-
+            if (statusEl) {
+                statusEl.textContent = isAutoSave ? 'Auto-saved' : 'Saved';
                 if (!isAutoSave) {
-                    setTimeout(() => {
-                        statusElement.textContent = 'Ready';
-                    }, 2000);
+                    setTimeout(() => statusEl.textContent = 'Ready', 2000);
                 }
             }
 
         } catch (error) {
-            this.handleError('Failed to save project', error);
-
-            const statusElement = document.getElementById('cbg-save-status');
-            if (statusElement) {
-                statusElement.innerHTML = '<span style="color: var(--danger);">Save failed</span>';
-                setTimeout(() => {
-                    statusElement.textContent = 'Ready';
-                }, 3000);
-            }
+            this.handleError('Save failed', error);
         }
     }
 
-    /**
-     * <summary>Check if there are unsaved changes</summary>
-     * @returns {boolean} True if there are unsaved changes
-     */
-    hasUnsavedChanges() {
-        // TODO: Implement proper change tracking
-        return false;
-    }
-
-    /**
-     * <summary>Update UI elements based on project data</summary>
-     */
-    updateUI() {
-        this.log('Updating UI...');
-
-        // Update title or project info if needed
-        if (this.projectData && this.projectData.projectInfo) {
-            document.title = `Comic Creator - ${this.projectData.projectInfo.title || 'Untitled'}`;
-        }
-    }
-
-    /**
-     * <summary>Get project data</summary>
-     * @returns {Object} Current project data
-     */
-    getProjectData() {
-        return this.projectData;
-    }
-
-    /**
-     * <summary>Update project data</summary>
-     * @param {Object} data - Updated project data
-     */
     updateProjectData(data) {
         this.projectData = { ...this.projectData, ...data };
-        this.log('Project data updated');
     }
 
-    /**
-     * <summary>Get a specific manager</summary>
-     * @param {string} name - Manager name
-     * @returns {Object} Manager instance
-     */
-    getManager(name) {
-        return this.managers[name];
-    }
-
-    /**
-     * <summary>Debug logging helper</summary>
-     * @param {string} message - Log message
-     * @param {*} data - Optional data to log
-     */
-    log(message, data = null) {
-        if (this.debug) {
-            const timestamp = new Date().toISOString().substr(11, 12);
-            console.log(`[CBG:Main ${timestamp}] ${message}`, data || '');
-        }
-    }
-
-    /**
-     * <summary>Error handling helper</summary>
-     * @param {string} message - Error message
-     * @param {Error} error - Error object
-     */
     handleError(message, error) {
-        console.error(`[CBG:Main ERROR] ${message}:`, error);
-
-        // Show error to user using SwarmUI's error system
+        console.error(`[CBG ERROR] ${message}:`, error);
         if (typeof showError === 'function') {
             showError(`${message}: ${error.message}`);
-        } else {
-            alert(`${message}: ${error.message}`);
         }
     }
 
-    /**
-     * <summary>Cleanup resources</summary>
-     */
     destroy() {
-        this.log('Destroying Comic Book Generator...');
-
-        if (this.autoSaveInterval) {
-            clearInterval(this.autoSaveInterval);
-        }
-
-        // Cleanup managers
-        Object.values(this.managers).forEach(manager => {
-            if (manager && typeof manager.destroy === 'function') {
-                manager.destroy();
-            }
-        });
-
+        this.eventManager.clear();
+        Object.values(this.managers).forEach(m => m.destroy());
         this.isInitialized = false;
-        this.log('Comic Book Generator destroyed');
     }
 }
 
 // Initialize when DOM is ready
 let comicBookGenerator = null;
 
-document.addEventListener('DOMContentLoaded', async () => {
+const initializeComicBook = async () => {
     try {
-        console.log('[CBG] DOM loaded, initializing...');
+        const root = document.getElementById('comicbook-generator');
+        if (!root) {
+            setTimeout(initializeComicBook, 1000);
+            return;
+        }
+
         comicBookGenerator = new ComicBookGenerator();
         await comicBookGenerator.initialize();
+
     } catch (error) {
         console.error('[CBG] Failed to initialize:', error);
-        if (typeof showError === 'function') {
-            showError(`Failed to initialize Comic Book Generator: ${error.message}`);
-        }
     }
-});
+};
 
-// Export for use by other modules
-export { ComicBookGenerator, comicBookGenerator };
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeComicBook);
+} else {
+    setTimeout(initializeComicBook, 100);
+}
+
+// Make available globally
+window.ComicBookGenerator = ComicBookGenerator;
+window.comicBookGenerator = comicBookGenerator;

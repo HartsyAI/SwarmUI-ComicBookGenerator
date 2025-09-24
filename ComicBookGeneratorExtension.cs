@@ -9,9 +9,13 @@ public class ComicBookGeneratorExtension : Extension
     public override void OnPreInit()
     {
         ScriptFiles.Add("Assets/comicbook-main.js");
+        ScriptFiles.Add("Assets/comicbook-data.js");
+        ScriptFiles.Add("Assets/comicbook-characters.js");
+        ScriptFiles.Add("Assets/comicbook-story.js");
+        ScriptFiles.Add("Assets/comicbook-layout.js");
+        ScriptFiles.Add("Assets/comicbook-publication.js");
         StyleSheetFiles.Add("Assets/comicbook.css");
-
-        Logs.Info("ComicBookGeneratorExtension loaded (skeleton)");
+        Logs.Info("ComicBookGeneratorExtension loaded - scripts registered in correct dependency order");
     }
 
     public override void OnInit()
