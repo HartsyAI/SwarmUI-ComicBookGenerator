@@ -32,6 +32,16 @@ class LayoutManager extends BaseManager {
     }
 
     /**
+     * <summary>Stub: get current page data safely</summary>
+     * Returns the current page object or null if out of range.
+     */
+    getCurrentPage() {
+        if (!Array.isArray(this.pages) || this.pages.length === 0) return null;
+        const idx = Math.max(0, Math.min(this.pages.length - 1, this.currentPage || 0));
+        return this.pages[idx] || null;
+    }
+
+    /**
      * <summary>Initialize the layout manager</summary>
      */
     async initialize() {
@@ -1173,6 +1183,8 @@ async renderCanvas() {
         this.selectPanel(newPanel);
         this.saveState();
 
+        this.persistLayoutOptional();
+
         this.log('Added new panel:', newPanel.id);
     }
 
@@ -1200,6 +1212,10 @@ async renderCanvas() {
         currentPage.panels.push(newPanel);
         this.selectPanel(newPanel);
         this.saveState();
+
+        this.persistLayoutOptional();
+
+        this.log('Added new panel:', newPanel.id);
     }
 
     /**
@@ -1298,6 +1314,8 @@ async renderCanvas() {
         this.selectPanel(duplicatePanel);
         this.saveState();
 
+        this.persistLayoutOptional();
+
         this.log('Duplicated panel:', duplicatePanel.id);
     }
 
@@ -1321,6 +1339,8 @@ async renderCanvas() {
 
             this.saveState();
             this.render();
+
+            this.persistLayoutOptional();
 
             this.log('Deleted panel:', panelId);
         }
@@ -1614,6 +1634,8 @@ async renderCanvas() {
             // Update project data
             this.main.updateProjectData({ layout: layoutData });
 
+            this.persistLayoutOptional(layoutData);
+
             this.log(`Saved ${this.pages.length} pages`);
 
         } catch (error) {
@@ -1621,6 +1643,20 @@ async renderCanvas() {
         }
     }
 
+    /**
+     * <summary>Safely persist layout to backend if available</summary>
+     */
+    persistLayoutOptional(layoutData = null) {
+        try {
+            const payload = layoutData || { pages: this.pages, currentPage: this.currentPage };
+            if (typeof DataHelper?.save === 'function') {
+                DataHelper.save('UpdateLayout', payload);
+            }
+        } catch (e) {
+            // Non-blocking persistence failure
+            console.warn('[CBG:Layout] Failed to persist layout (optional):', e);
+        }
+    }
     /**
      * <summary>Load layout data</summary>
      * @param {Object} layoutData - Layout data to load

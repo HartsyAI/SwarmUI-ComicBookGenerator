@@ -1247,6 +1247,17 @@ class PublicationManager extends BaseManager {
         this.reviewStatus[reviewType] = !this.reviewStatus[reviewType];
         this.renderNavigationPanel(); // Refresh review status display
         this.log(`${reviewType} review status: ${this.reviewStatus[reviewType] ? 'approved' : 'pending'}`);
+
+        // TODO (C# backend): Persist review status immediately
+        // Safe, optional call (won't break if DataHelper/genericRequest isn't wired yet)
+        try {
+            if (typeof DataHelper?.save === 'function') {
+                DataHelper.save('UpdateReviewStatus', { reviewStatus: this.reviewStatus });
+            }
+        } catch (e) {
+            // Non-blocking
+            console.warn('[CBG:Publication] Failed to persist review status (optional):', e);
+        }
     }
 
     /**
@@ -1310,6 +1321,15 @@ class PublicationManager extends BaseManager {
             this.publicationMeta.ageRating = this.getFormValue('cbg-age-rating');
 
             this.log('Publication settings updated');
+
+            // TODO (C# backend): Persist metadata immediately
+            try {
+                if (typeof DataHelper?.save === 'function') {
+                    DataHelper.save('UpdatePublicationSettings', { publicationMeta: this.publicationMeta });
+                }
+            } catch (e) {
+                console.warn('[CBG:Publication] Failed to persist publication settings (optional):', e);
+            }
 
         } catch (error) {
             this.handleError('Failed to update publication settings', error);

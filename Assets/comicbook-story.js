@@ -1429,6 +1429,33 @@ LOIS: Clark! Where have you been?"
     }
 
     /**
+     * <summary>Stub: determine if there are unsaved changes</summary>
+     * Keeps autosave timer happy without noisy errors.
+     */
+    hasUnsavedChanges() {
+        // TODO: Implement real dirty-checking per field/tab
+        return false;
+    }
+
+    /**
+     * <summary>Stub: persist data from the currently active tab into storyData</summary>
+     * Prevents save/render handlers from failing until full binding is implemented.
+     */
+    saveCurrentTabData() {
+        try {
+            // Minimal safe update: bump lastModified and recompute light stats.
+            if (this.storyData) {
+                this.storyData.lastModified = Date.now();
+                this.storyData.wordCount = this.countWords(this.storyData.script || '');
+                this.storyData.pageCount = this.storyData.estimatedPages || Math.ceil((this.storyData.wordCount || 0) / 250);
+            }
+        } catch (e) {
+            // Non-fatal: keep as no-op
+            console.warn('[CBG:Story] saveCurrentTabData stub warning:', e);
+        }
+    }
+
+    /**
      * <summary>Load story data</summary>
      * @param {Object} storyData - Story data to load
      */

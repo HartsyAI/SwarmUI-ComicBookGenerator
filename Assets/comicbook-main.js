@@ -436,6 +436,30 @@ class ComicBookGenerator {
             this.setupModeHandling();
             this.setupGlobalHandlers();
 
+            // TODO (UI Splitter): If Swarm exposes a splitter helper, initialize it here.
+            // This avoids adding duplicate/bloated resize logic in the extension.
+            // The following is an example only and is intentionally commented out.
+            // Uncomment and adjust once the Swarm utility API is confirmed.
+            /*
+            const tryInitSplitter = (handleId, leftId, rightId) => {
+                const handle = document.getElementById(handleId);
+                const left = document.getElementById(leftId);
+                const right = document.getElementById(rightId);
+                if (handle && left && right && window.Swarm?.UI?.initSplitter) {
+                    window.Swarm.UI.initSplitter(handle, left, right, { orientation: 'vertical' });
+                }
+            };
+
+            // Characters mode panels
+            tryInitSplitter('resize_handle_characters', 'character_library_section', 'character_editor_section');
+            // Story mode panels
+            tryInitSplitter('resize_handle_story', 'story_navigation_section', 'story_editor_section');
+            // Layout mode panels
+            tryInitSplitter('resize_handle_layout', 'layout_canvas_section', 'layout_inspector_section');
+            // Publication mode panels
+            tryInitSplitter('resize_handle_publication', 'publication_navigator_section', 'publication_reader_section');
+            */
+
             // Initialize all managers
             await Promise.all(Object.values(this.managers).map(m => m.initialize()));
 

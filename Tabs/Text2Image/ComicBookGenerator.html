@@ -1,333 +1,401 @@
-<!-- Enhanced Comic Book Generator -->
-<div id="comicbook-generator" class="tab-content scroll-within-tab">
+<!-- Enhanced Comic Book Generator (UI/UX-focused markup, IDs preserved) -->
+<div id="comicbook-generator" class="tab-content scroll-within-tab" role="main" aria-label="Comic Book Generator">
+
+    <!-- Skip Links (Accessibility) -->
+    <nav class="skip-links" aria-label="Skip navigation">
+        <a href="#cbg-main-content" class="skip-link">Skip to main content</a>
+        <a href="#cbg-mode-selector" class="skip-link">Skip to mode selection</a>
+    </nav>
+
     <div class="d-flex flex-column comic-book-generator">
 
-        <!-- Mode Selection Header -->
-        <div class="section-header cbg-main-header">
+        <!-- Header -->
+        <header class="section-header cbg-main-header" role="banner">
             <div class="d-flex justify-content-between align-items-center">
                 <div class="cbg-title">
-                    <h2 style="margin: 0; font-size: 1.4rem; font-weight: 600;">Comic Book Creator</h2>
-                    <div style="font-size: 0.85rem; color: var(--text-soft); margin-top: 0.25rem;">Professional AI-Powered Comic Creation Suite</div>
+                    <h1 class="cbg-main-title">Comic Book Creator</h1>
+                    <p class="cbg-subtitle">Professional AI-Powered Comic Creation Suite</p>
                 </div>
 
-                <div class="btn-group btn-group-sm cbg-mode-selector" role="group">
+                <!-- Mode Selection -->
+                <nav class="btn-group btn-group-sm cbg-mode-selector" role="tablist" aria-label="Comic creation modes" id="cbg-mode-selector">
                     <input type="radio" class="btn-check" name="cbg_mode" id="characters_mode" autocomplete="off" checked>
-                    <label class="btn btn-outline-primary" for="characters_mode">
-                        <span class="mode-icon">👥</span>
-                        Characters
+                    <label class="btn btn-outline-primary" for="characters_mode" role="tab" aria-controls="characters_content" aria-selected="true" tabindex="0">
+                        <span class="mode-icon" aria-hidden="true">👥</span>
+                        <span>Characters</span>
+                        <span class="sr-only">Press Alt+1 to switch</span>
                     </label>
 
                     <input type="radio" class="btn-check" name="cbg_mode" id="story_mode" autocomplete="off">
-                    <label class="btn btn-outline-primary" for="story_mode">
-                        <span class="mode-icon">📖</span>
-                        Story
+                    <label class="btn btn-outline-primary" for="story_mode" role="tab" aria-controls="story_content" aria-selected="false" tabindex="-1">
+                        <span class="mode-icon" aria-hidden="true">📖</span>
+                        <span>Story</span>
+                        <span class="sr-only">Press Alt+2 to switch</span>
                     </label>
 
                     <input type="radio" class="btn-check" name="cbg_mode" id="layout_mode" autocomplete="off">
-                    <label class="btn btn-outline-primary" for="layout_mode">
-                        <span class="mode-icon">🎨</span>
-                        Layout
+                    <label class="btn btn-outline-primary" for="layout_mode" role="tab" aria-controls="layout_content" aria-selected="false" tabindex="-1">
+                        <span class="mode-icon" aria-hidden="true">🎨</span>
+                        <span>Layout</span>
+                        <span class="sr-only">Press Alt+3 to switch</span>
                     </label>
 
                     <input type="radio" class="btn-check" name="cbg_mode" id="publication_mode" autocomplete="off">
-                    <label class="btn btn-outline-primary" for="publication_mode">
-                        <span class="mode-icon">📚</span>
-                        Publication
+                    <label class="btn btn-outline-primary" for="publication_mode" role="tab" aria-controls="publication_content" aria-selected="false" tabindex="-1">
+                        <span class="mode-icon" aria-hidden="true">📚</span>
+                        <span>Publication</span>
+                        <span class="sr-only">Press Alt+4 to switch</span>
                     </label>
-                </div>
+                </nav>
 
+                <!-- Global Controls -->
                 <div class="cbg-global-controls d-flex align-items-center">
-                    <div class="cbg-status-indicators me-3">
-                        <span id="cbg-save-status" class="status-indicator">Ready</span>
-                        <span id="cbg-project-status" class="status-indicator">Draft</span>
+                    <div class="cbg-status-indicators me-3" aria-live="polite">
+                        <span id="cbg-save-status" class="status-indicator" aria-label="Save status">Ready</span>
+                        <span id="cbg-project-status" class="status-indicator" aria-label="Project status">Draft</span>
                     </div>
-                    <button id="cbg-save-project" class="basic-button btn-primary">
-                        <span class="btn-icon">💾</span>
-                        Save Project
+                    <button id="cbg-save-project" class="basic-button btn-primary" aria-describedby="save-tooltip">
+                        <span class="btn-icon" aria-hidden="true">💾</span>
+                        <span class="btn-text">Save Project</span>
                     </button>
+                    <div id="save-tooltip" class="tooltip" role="tooltip">Save your comic project (Ctrl+S)</div>
                 </div>
             </div>
-        </div>
+        </header>
 
-        <!-- Characters Mode -->
-        <div id="characters_content" class="mode-content d-flex flex-grow-1 main-content active">
-            <!-- Left Side - Character Library -->
-            <div id="character_library_section" class="cbg-panel cbg-left-panel">
-                <div class="section-content">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <span class="section-icon">👥</span>
-                            Character Library
-                        </div>
-                        <div class="section-controls">
-                            <button id="cbg-character-search-toggle" class="basic-button small-button me-2" title="Search Characters">🔍</button>
-                            <button id="cbg-add-character" class="basic-button btn-primary">+ Add</button>
-                        </div>
-                    </div>
+        <!-- Main Content -->
+        <main id="cbg-main-content" class="main-content" role="region" aria-label="Comic Book Generator workspace">
 
-                    <!-- Character Search/Filter -->
-                    <div id="cbg-character-search-panel" class="search-panel" style="display: none;">
-                        <div class="d-flex gap-2 mb-3">
-                            <input type="text" id="cbg-character-search" class="form-control form-control-sm" placeholder="Search characters...">
-                            <select id="cbg-character-filter" class="form-select form-select-sm" style="width: auto;">
-                                <option value="all">All Roles</option>
-                                <option value="Protagonist">Protagonist</option>
-                                <option value="Antagonist">Antagonist</option>
-                                <option value="Supporting">Supporting</option>
-                                <option value="Background">Background</option>
-                            </select>
-                        </div>
-                    </div>
+            <!-- Characters Mode -->
+            <section id="characters_content" class="mode-content d-flex flex-grow-1 main-content active" role="tabpanel" aria-labelledby="characters_mode" aria-hidden="false">
+                <!-- Left: Character Library -->
+                <aside id="character_library_section" class="cbg-panel cbg-left-panel" role="complementary" aria-label="Character library">
+                    <div class="section-content">
+                        <header class="section-header">
+                            <h2 class="section-title">
+                                <span class="section-icon" aria-hidden="true">👥</span>
+                                Character Library
+                            </h2>
+                            <div class="section-controls">
+                                <button id="cbg-character-search-toggle" class="basic-button small-button me-2" title="Search Characters" aria-expanded="false" aria-controls="cbg-character-search-panel">
+                                    <span aria-hidden="true">🔍</span>
+                                    <span class="sr-only">Search characters</span>
+                                </button>
+                                <button id="cbg-add-character" class="basic-button btn-primary">
+                                    <span aria-hidden="true">+</span>
+                                    <span>Add</span>
+                                </button>
+                            </div>
+                        </header>
 
-                    <div class="character-library-area">
-                        <div id="cbg-character-cards" class="character-cards-grid">
-                            <!-- Character cards will be populated by JavaScript -->
+                        <!-- Search/Filter -->
+                        <div id="cbg-character-search-panel" class="search-panel" style="display: none;" aria-hidden="true">
+                            <div class="d-flex gap-2 mb-3">
+                                <label for="cbg-character-search" class="sr-only">Search characters</label>
+                                <input type="text" id="cbg-character-search" class="form-control form-control-sm" placeholder="Search characters..." aria-describedby="cbg-character-search-help">
+                                <div id="cbg-character-search-help" class="form-text">Search by name, role, or traits</div>
+
+                                <label for="cbg-character-filter" class="sr-only">Filter by role</label>
+                                <select id="cbg-character-filter" class="form-select form-select-sm" style="width: auto;" aria-label="Filter by role">
+                                    <option value="all">All Roles</option>
+                                    <option value="Protagonist">Protagonist</option>
+                                    <option value="Antagonist">Antagonist</option>
+                                    <option value="Supporting">Supporting</option>
+                                    <option value="Background">Background</option>
+                                </select>
+                            </div>
                         </div>
 
-                        <!-- Character Stats Summary -->
-                        <div id="cbg-character-stats" class="character-stats-panel">
-                            <div class="stats-grid">
-                                <div class="stat-item">
-                                    <span class="stat-number" id="cbg-total-characters">0</span>
-                                    <span class="stat-label">Characters</span>
+                        <div class="character-library-area">
+                            <!-- Character Cards Grid -->
+                            <div id="cbg-character-cards" class="character-cards-grid" role="grid" aria-label="Character cards">
+                                <!-- Cards populated by JavaScript -->
+                            </div>
+
+                            <!-- Character Stats -->
+                            <section id="cbg-character-stats" class="character-stats-panel" role="region" aria-label="Character statistics">
+                                <div class="stats-grid">
+                                    <div class="stat-item">
+                                        <span class="stat-number" id="cbg-total-characters" aria-label="Total characters">0</span>
+                                        <span class="stat-label">Characters</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-number" id="cbg-main-characters" aria-label="Main characters">0</span>
+                                        <span class="stat-label">Main</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-number" id="cbg-relationships" aria-label="Character connections">0</span>
+                                        <span class="stat-label">Connections</span>
+                                    </div>
                                 </div>
-                                <div class="stat-item">
-                                    <span class="stat-number" id="cbg-main-characters">0</span>
-                                    <span class="stat-label">Main</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-number" id="cbg-relationships">0</span>
-                                    <span class="stat-label">Connections</span>
-                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Resize Handle -->
+                <!-- TODO (UI Splitter): Wire this handle to Swarm's splitter utility if available.
+                     Do NOT add duplicate resize logic here. Expected pattern (if exposed):
+                     window.Swarm?.UI?.initSplitter(handleEl, leftPanelEl, rightPanelEl, { orientation: 'vertical' }) -->
+                <div id="resize_handle_characters" class="resize-handle" role="separator" aria-orientation="vertical" aria-label="Resize character panels" tabindex="0"></div>
+
+                <!-- Right: Character Editor -->
+                <section id="character_editor_section" class="cbg-panel cbg-right-panel flex-grow-1" role="region" aria-label="Character editor">
+                    <div class="section-content d-flex flex-column">
+                        <header class="section-header">
+                            <h2 class="section-title">
+                                <span class="section-icon" aria-hidden="true">✏️</span>
+                                Character Editor
+                            </h2>
+                            <div class="section-controls d-flex align-items-center">
+                                <span id="cbg-character-status" class="status-text me-3" aria-live="polite">Select a character</span>
+                                <button id="cbg-duplicate-character" class="basic-button small-button me-2" disabled title="Duplicate Character" aria-disabled="true">📋</button>
+                                <button id="cbg-save-character" class="basic-button btn-primary" disabled aria-disabled="true">
+                                    <span class="save-icon" aria-hidden="true"></span>
+                                    Save Character
+                                </button>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                        </header>
 
-            <!-- Resize Handle -->
-            <div id="resize_handle_characters" class="resize-handle"></div>
-
-            <!-- Right Side - Character Editor -->
-            <div id="character_editor_section" class="cbg-panel cbg-right-panel flex-grow-1">
-                <div class="section-content d-flex flex-column">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <span class="section-icon">✏️</span>
-                            Character Editor
-                        </div>
-                        <div class="section-controls d-flex align-items-center">
-                            <span id="cbg-character-status" class="status-text me-3">Select a character</span>
-                            <button id="cbg-duplicate-character" class="basic-button small-button me-2" disabled title="Duplicate Character">📋</button>
-                            <button id="cbg-save-character" class="basic-button btn-primary" disabled>Save Character</button>
-                        </div>
-                    </div>
-
-                    <div class="character-editor-area flex-grow-1">
-                        <!-- Tabbed Character Editor -->
-                        <div id="cbg-character-tabs" class="cbg-tabs-container">
-                            <div class="cbg-tabs-header">
-                                <button class="cbg-tab-btn active" data-tab="basic">Basic Info</button>
-                                <button class="cbg-tab-btn" data-tab="appearance">Appearance</button>
-                                <button class="cbg-tab-btn" data-tab="psychology">Psychology</button>
-                                <button class="cbg-tab-btn" data-tab="backstory">Backstory</button>
-                                <button class="cbg-tab-btn" data-tab="story-role">Story Role</button>
-                                <button class="cbg-tab-btn" data-tab="skills">Skills</button>
-                                <button class="cbg-tab-btn" data-tab="relationships">Relationships</button>
-                            </div>
-                            <div class="cbg-tabs-content">
-                                <div id="cbg-character-editor-content">
-                                    <!-- Content will be populated by JavaScript -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Story Mode -->
-        <div id="story_content" class="mode-content d-flex flex-grow-1 main-content">
-            <!-- Left Side - Story Navigation -->
-            <div id="story_navigation_section" class="cbg-panel cbg-left-panel">
-                <div class="section-content">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <span class="section-icon">📖</span>
-                            Story Structure
-                        </div>
-                        <div class="section-controls">
-                            <button id="cbg-story-outline-toggle" class="basic-button small-button" title="Toggle Outline">📋</button>
-                        </div>
-                    </div>
-                    <div class="story-navigation-area">
-                        <div id="cbg-story-navigation-content">
-                            <!-- Navigation content will be populated by JavaScript -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Resize Handle -->
-            <div id="resize_handle_story" class="resize-handle"></div>
-
-            <!-- Right Side - Story Editor -->
-            <div id="story_editor_section" class="cbg-panel cbg-right-panel flex-grow-1">
-                <div class="section-content d-flex flex-column">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <span class="section-icon">✍️</span>
-                            Story Development
-                        </div>
-                        <div class="section-controls d-flex align-items-center">
-                            <div class="story-stats me-3">
-                                <span id="cbg-story-word-count" class="stat-badge">0 words</span>
-                                <span id="cbg-story-completion" class="stat-badge">0% complete</span>
-                            </div>
-                            <button id="cbg-story-export" class="basic-button small-button me-2">Export</button>
-                            <button id="cbg-story-save" class="basic-button btn-primary">Save Story</button>
-                        </div>
-                    </div>
-
-                    <div class="story-editor-area flex-grow-1">
-                        <!-- Tabbed Story Editor -->
-                        <div id="cbg-story-tabs" class="cbg-tabs-container">
-                            <div class="cbg-tabs-header">
-                                <button class="cbg-tab-btn active" data-tab="info">Story Info</button>
-                                <button class="cbg-tab-btn" data-tab="plot">Plot Structure</button>
-                                <button class="cbg-tab-btn" data-tab="world">World Building</button>
-                                <button class="cbg-tab-btn" data-tab="arcs">Character Arcs</button>
-                                <button class="cbg-tab-btn" data-tab="analysis">Analysis</button>
-                            </div>
-                            <div class="cbg-tabs-content">
-                                <div id="cbg-story-editor-content">
-                                    <!-- Content will be populated by JavaScript -->
+                        <div class="character-editor-area flex-grow-1">
+                            <div id="cbg-character-tabs" class="cbg-tabs-container">
+                                <nav class="cbg-tabs-header" role="tablist" aria-label="Character editor tabs">
+                                    <button class="cbg-tab-btn active" data-tab="basic" role="tab" aria-selected="true" tabindex="0">Basic Info</button>
+                                    <button class="cbg-tab-btn" data-tab="appearance" role="tab" aria-selected="false" tabindex="-1">Appearance</button>
+                                    <button class="cbg-tab-btn" data-tab="psychology" role="tab" aria-selected="false" tabindex="-1">Psychology</button>
+                                    <button class="cbg-tab-btn" data-tab="backstory" role="tab" aria-selected="false" tabindex="-1">Backstory</button>
+                                    <button class="cbg-tab-btn" data-tab="story-role" role="tab" aria-selected="false" tabindex="-1">Story Role</button>
+                                    <button class="cbg-tab-btn" data-tab="skills" role="tab" aria-selected="false" tabindex="-1">Skills</button>
+                                    <button class="cbg-tab-btn" data-tab="relationships" role="tab" aria-selected="false" tabindex="-1">Relationships</button>
+                                </nav>
+                                <div class="cbg-tabs-content">
+                                    <div id="cbg-character-editor-content" role="tabpanel" aria-live="polite">
+                                        <!-- Content populated by JavaScript -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
+                </section>
+            </section>
 
-        <!-- Layout Mode -->
-        <div id="layout_content" class="mode-content d-flex flex-grow-1 main-content">
-            <!-- Main Canvas Area -->
-            <div id="layout_canvas_section" class="cbg-panel flex-grow-1">
-                <div class="section-content d-flex flex-column">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <span class="section-icon">🎨</span>
-                            Page Layout Canvas
-                        </div>
-                        <div class="section-controls d-flex align-items-center">
-                            <select id="cbg-current-page" class="form-select form-select-sm me-2" style="width: 100px;">
-                                <option value="1">Page 1</option>
-                            </select>
-                            <select id="cbg-layout-templates" class="form-select form-select-sm me-2" style="width: 140px;">
-                                <option value="">Custom Layout</option>
-                                <option value="grid-2x2">2×2 Grid</option>
-                                <option value="grid-3x3">3×3 Grid</option>
-                                <option value="manga-vert">Manga Vertical</option>
-                                <option value="splash">Splash Page</option>
-                            </select>
-                            <button class="basic-button small-button me-2" id="cbg-add-panel">+ Panel</button>
-                            <button class="basic-button btn-primary" id="cbg-save-page">Save Page</button>
-                        </div>
-                    </div>
-                    <div class="canvas-area flex-grow-1">
-                        <div id="cbg-layout-canvas" class="panel-canvas">
-                            <!-- Panels will be added dynamically -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Resize Handle -->
-            <div id="resize_handle_layout" class="resize-handle"></div>
-
-            <!-- Right Side - Panel Inspector -->
-            <div id="layout_inspector_section" class="cbg-panel cbg-right-panel">
-                <div class="section-content">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <span class="section-icon">🔧</span>
-                            Panel Inspector
-                        </div>
-                    </div>
-                    <div class="inspector-area">
-                        <div id="cbg-panel-inspector-content">
-                            <!-- Content will be populated by JavaScript -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Publication Mode (formerly Preview) -->
-        <div id="publication_content" class="mode-content d-flex flex-grow-1 main-content">
-            <!-- Left Side - Navigation & Controls -->
-            <div id="publication_navigator_section" class="cbg-panel cbg-left-panel">
-                <div class="section-content">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <span class="section-icon">📚</span>
-                            Publication Suite
-                        </div>
-                        <div class="section-controls">
-                            <button id="cbg-reading-options" class="basic-button small-button" title="Reading Options">⚙️</button>
-                        </div>
-                    </div>
-                    <div class="navigator-area">
-                        <div id="cbg-preview-navigator-content">
-                            <!-- Navigator content will be populated by JavaScript -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Resize Handle -->
-            <div id="resize_handle_publication" class="resize-handle"></div>
-
-            <!-- Right Side - Comic Reader -->
-            <div id="publication_reader_section" class="cbg-panel cbg-right-panel flex-grow-1">
-                <div class="section-content d-flex flex-column">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <span class="section-icon">👁️</span>
-                            Comic Reader
-                        </div>
-                        <div class="section-controls d-flex align-items-center">
-                            <select id="cbg-reading-mode" class="form-select form-select-sm me-2" style="width: 140px;">
-                                <option value="single-page">Single Page</option>
-                                <option value="double-page">Double Page</option>
-                                <option value="continuous-scroll">Continuous</option>
-                                <option value="panel-by-panel">Panel Guide</option>
-                            </select>
-                            <button class="basic-button small-button me-2" id="cbg-zoom-fit">Fit</button>
-                            <button class="basic-button small-button me-2" id="cbg-zoom-100">100%</button>
-                            <select id="cbg-zoom-level" class="form-select form-select-sm me-2" style="width: 80px;">
-                                <option value="25">25%</option>
-                                <option value="50">50%</option>
-                                <option value="75">75%</option>
-                                <option value="100" selected>100%</option>
-                                <option value="125">125%</option>
-                                <option value="150">150%</option>
-                                <option value="200">200%</option>
-                            </select>
-                            <button id="cbg-fullscreen-reader" class="basic-button btn-primary">📖 Fullscreen</button>
-                        </div>
-                    </div>
-                    <div class="reader-area flex-grow-1">
-                        <div id="cbg-preview-canvas" class="comic-reader-viewport">
-                            <div id="cbg-preview-content">
-                                <!-- Preview content will be populated by JavaScript -->
+            <!-- Story Mode -->
+            <section id="story_content" class="mode-content d-flex flex-grow-1 main-content" role="tabpanel" aria-labelledby="story_mode" aria-hidden="true">
+                <!-- Left: Story Navigation -->
+                <aside id="story_navigation_section" class="cbg-panel cbg-left-panel" role="complementary" aria-label="Story navigation">
+                    <div class="section-content">
+                        <header class="section-header">
+                            <h2 class="section-title">
+                                <span class="section-icon" aria-hidden="true">📖</span>
+                                Story Structure
+                            </h2>
+                            <div class="section-controls">
+                                <button id="cbg-story-outline-toggle" class="basic-button small-button" title="Toggle Outline" aria-controls="cbg-story-navigation-content" aria-expanded="true">📋</button>
+                            </div>
+                        </header>
+                        <div class="story-navigation-area">
+                            <div id="cbg-story-navigation-content" role="region" aria-label="Story outline and navigation">
+                                <!-- Populated by JavaScript -->
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
+                </aside>
 
+                <!-- Resize Handle -->
+                <!-- TODO (UI Splitter): Wire this handle to Swarm's splitter utility if available.
+                     Do NOT add duplicate resize logic here. Expected pattern (if exposed):
+                     window.Swarm?.UI?.initSplitter(handleEl, leftPanelEl, rightPanelEl, { orientation: 'vertical' }) -->
+                <div id="resize_handle_story" class="resize-handle" role="separator" aria-orientation="vertical" aria-label="Resize story panels" tabindex="0"></div>
+
+                <!-- Right: Story Editor -->
+                <section id="story_editor_section" class="cbg-panel cbg-right-panel flex-grow-1" role="region" aria-label="Story editor">
+                    <div class="section-content d-flex flex-column">
+                        <header class="section-header">
+                            <h2 class="section-title">
+                                <span class="section-icon" aria-hidden="true">✍️</span>
+                                Story Development
+                            </h2>
+                            <div class="section-controls d-flex align-items-center">
+                                <div class="story-stats me-3" aria-label="Story statistics">
+                                    <span id="cbg-story-word-count" class="stat-badge" aria-label="Word count">0 words</span>
+                                    <span id="cbg-story-completion" class="stat-badge" aria-label="Completion percentage">0% complete</span>
+                                </div>
+                                <button id="cbg-story-export" class="basic-button small-button me-2">Export</button>
+                                <button id="cbg-story-save" class="basic-button btn-primary">
+                                    <span class="save-icon" aria-hidden="true"></span>
+                                    Save Story
+                                </button>
+                            </div>
+                        </header>
+
+                        <div class="story-editor-area flex-grow-1">
+                            <div id="cbg-story-tabs" class="cbg-tabs-container">
+                                <nav class="cbg-tabs-header" role="tablist" aria-label="Story editor tabs">
+                                    <button class="cbg-tab-btn active" data-tab="info" role="tab" aria-selected="true" tabindex="0">Story Info</button>
+                                    <button class="cbg-tab-btn" data-tab="plot" role="tab" aria-selected="false" tabindex="-1">Plot Structure</button>
+                                    <button class="cbg-tab-btn" data-tab="world" role="tab" aria-selected="false" tabindex="-1">World Building</button>
+                                    <button class="cbg-tab-btn" data-tab="arcs" role="tab" aria-selected="false" tabindex="-1">Character Arcs</button>
+                                    <button class="cbg-tab-btn" data-tab="analysis" role="tab" aria-selected="false" tabindex="-1">Analysis</button>
+                                </nav>
+                                <div class="cbg-tabs-content">
+                                    <div id="cbg-story-editor-content" role="tabpanel" aria-live="polite">
+                                        <!-- Content will be populated by JavaScript -->
+                                        <!-- Story Manager expects this inner container for rendering story settings/tabs -->
+                                        <div id="cbg-story-settings-content"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Layout Mode -->
+            <section id="layout_content" class="mode-content d-flex flex-grow-1 main-content" role="tabpanel" aria-labelledby="layout_mode" aria-hidden="true">
+                <!-- Main Canvas -->
+                <section id="layout_canvas_section" class="cbg-panel flex-grow-1" role="region" aria-label="Page layout canvas">
+                    <div class="section-content d-flex flex-column">
+                        <header class="section-header">
+                            <h2 class="section-title">
+                                <span class="section-icon" aria-hidden="true">🎨</span>
+                                Page Layout Canvas
+                            </h2>
+                            <div class="section-controls d-flex align-items-center layout-controls">
+                                <label for="cbg-current-page" class="sr-only">Current page</label>
+                                <select id="cbg-current-page" class="form-select form-select-sm me-2" style="width: 100px;" aria-label="Select current page">
+                                    <option value="1">Page 1</option>
+                                </select>
+
+                                <label for="cbg-layout-templates" class="sr-only">Page layout template</label>
+                                <select id="cbg-layout-templates" class="form-select form-select-sm me-2" style="width: 140px;" aria-label="Choose layout template">
+                                    <option value="">Custom Layout</option>
+                                    <option value="grid-2x2">2×2 Grid</option>
+                                    <option value="grid-3x3">3×3 Grid</option>
+                                    <option value="manga-vert">Manga Vertical</option>
+                                    <option value="splash">Splash Page</option>
+                                </select>
+
+                                <button class="basic-button small-button me-2" id="cbg-add-panel">
+                                    <span aria-hidden="true">+</span>
+                                    Panel
+                                </button>
+                                <button class="basic-button btn-primary" id="cbg-save-page">
+                                    <span class="save-icon" aria-hidden="true"></span>
+                                    Save Page
+                                </button>
+                            </div>
+                        </header>
+
+                        <div class="canvas-area flex-grow-1">
+                            <div id="cbg-layout-canvas" class="panel-canvas" role="application" aria-label="Comic page canvas" tabindex="0" aria-describedby="canvas-instructions">
+                                <!-- Panels dynamically added -->
+                            </div>
+                            <div id="canvas-instructions" class="sr-only">Use arrow keys to navigate panels. Space selects. Enter edits selected panel.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Resize Handle -->
+                <!-- TODO (UI Splitter): Wire this handle to Swarm's splitter utility if available.
+                     Do NOT add duplicate resize logic here. Expected pattern (if exposed):
+                     window.Swarm?.UI?.initSplitter(handleEl, leftPanelEl, rightPanelEl, { orientation: 'vertical' }) -->
+                <div id="resize_handle_layout" class="resize-handle" role="separator" aria-orientation="vertical" aria-label="Resize layout panels" tabindex="0"></div>
+
+                <!-- Inspector -->
+                <aside id="layout_inspector_section" class="cbg-panel cbg-right-panel" role="complementary" aria-label="Panel inspector">
+                    <div class="section-content">
+                        <header class="section-header">
+                            <h2 class="section-title">
+                                <span class="section-icon" aria-hidden="true">🔧</span>
+                                Panel Inspector
+                            </h2>
+                        </header>
+                        <div class="inspector-area">
+                            <div id="cbg-panel-inspector-content">
+                                <!-- Populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </section>
+
+            <!-- Publication Mode -->
+            <section id="publication_content" class="mode-content d-flex flex-grow-1 main-content" role="tabpanel" aria-labelledby="publication_mode" aria-hidden="true">
+                <!-- Left: Navigator -->
+                <aside id="publication_navigator_section" class="cbg-panel cbg-left-panel" role="complementary" aria-label="Publication controls">
+                    <div class="section-content">
+                        <header class="section-header">
+                            <h2 class="section-title">
+                                <span class="section-icon" aria-hidden="true">📚</span>
+                                Publication Suite
+                            </h2>
+                            <div class="section-controls">
+                                <button id="cbg-reading-options" class="basic-button small-button" title="Reading Options">⚙️</button>
+                            </div>
+                        </header>
+                        <div class="navigator-area">
+                            <div id="cbg-preview-navigator-content" role="region" aria-label="Preview navigator">
+                                <!-- Populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Resize Handle -->
+                <!-- TODO (UI Splitter): Wire this handle to Swarm's splitter utility if available.
+                     Do NOT add duplicate resize logic here. Expected pattern (if exposed):
+                     window.Swarm?.UI?.initSplitter(handleEl, leftPanelEl, rightPanelEl, { orientation: 'vertical' }) -->
+                <div id="resize_handle_publication" class="resize-handle" role="separator" aria-orientation="vertical" aria-label="Resize publication panels" tabindex="0"></div>
+
+                <!-- Right: Reader -->
+                <section id="publication_reader_section" class="cbg-panel cbg-right-panel flex-grow-1" role="region" aria-label="Comic reader">
+                    <div class="section-content d-flex flex-column">
+                        <header class="section-header">
+                            <h2 class="section-title">
+                                <span class="section-icon" aria-hidden="true">👁️</span>
+                                Comic Reader
+                            </h2>
+                            <div class="section-controls d-flex align-items-center reader-controls">
+                                <label for="cbg-reading-mode" class="sr-only">Reading mode</label>
+                                <select id="cbg-reading-mode" class="form-select form-select-sm me-2" style="width: 140px;" aria-label="Choose reading mode">
+                                    <option value="single-page">Single Page</option>
+                                    <option value="double-page">Double Page</option>
+                                    <option value="continuous-scroll">Continuous</option>
+                                    <option value="panel-by-panel">Panel Guide</option>
+                                </select>
+
+                                <button class="basic-button small-button me-2" id="cbg-zoom-fit">Fit</button>
+                                <button class="basic-button small-button me-2" id="cbg-zoom-100">100%</button>
+
+                                <label for="cbg-zoom-level" class="sr-only">Zoom level</label>
+                                <select id="cbg-zoom-level" class="form-select form-select-sm me-2" style="width: 80px;" aria-label="Select zoom level">
+                                    <option value="25">25%</option>
+                                    <option value="50">50%</option>
+                                    <option value="75">75%</option>
+                                    <option value="100" selected>100%</option>
+                                    <option value="125">125%</option>
+                                    <option value="150">150%</option>
+                                    <option value="200">200%</option>
+                                </select>
+
+                                <button id="cbg-fullscreen-reader" class="basic-button btn-primary">
+                                    <span aria-hidden="true">📖</span>
+                                    <span>Fullscreen</span>
+                                </button>
+                            </div>
+                        </header>
+                        <div class="reader-area flex-grow-1">
+                            <div id="cbg-preview-canvas" class="comic-reader-viewport" role="application" aria-label="Comic book reader" tabindex="0" aria-describedby="reader-instructions">
+                                <div id="cbg-preview-content">
+                                    <!-- Populated by JavaScript -->
+                                </div>
+                            </div>
+                            <div id="reader-instructions" class="sr-only">Use arrow keys or Space/Shift+Space to navigate pages</div>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+        </main>
     </div>
 </div>
