@@ -77,8 +77,7 @@ public static class ComicBookGeneratorAPI
     /// <summary>Stub: Update layout state (e.g., pages/panels) for the project.</summary>
     [API.APIDescription("Updates layout state for the comic (stub - no persistence).", "{ success: bool }")]
     public static Task<JObject> UpdateLayout(
-        [API.APIParameter("Array of page objects as sent from frontend (optional)")] JToken pages = null,
-        [API.APIParameter("Current page index (optional)")] int currentPage = 0)
+        [API.APIParameter("Layout payload as sent from frontend")] JObject layout)
     {
         // Stub: accept and claim success without persistence for now
         var res = new JObject
